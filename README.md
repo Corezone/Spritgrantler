@@ -54,23 +54,18 @@ docker compose up -d --build
 
 Bei ganz Österreich, 30 Minuten Intervall und 365 Tagen Speicherung wächst die Datenbank auf etwa 300–500 MB. Nur Wien liegt bei etwa 60–120 MB im Jahr.
 
-## Home-Assistant-Sensor (optional)
+## Sensoren in Home Assistant
 
-Mit freigegebenem Port 8099:
+Nach jeder Sammelrunde legt die App diese Sensoren an bzw. aktualisiert sie (Diesel und Super):
 
-```yaml
-rest:
-  - resource: http://<HA-IP>:8099/api/summary?fuel=DIE
-    scan_interval: 900
-    sensor:
-      - name: Diesel günstigster
-        value_template: "{{ value_json.min }}"
-        unit_of_measurement: "€/l"
-      - name: Diesel Empfehlung
-        value_template: "{{ value_json.recommendation.title }}"
-```
+| Sensor | Inhalt |
+|---|---|
+| `sensor.spritgrantler_diesel_guenstigster` | günstigster Preis in Österreich, Attribute: Tankstelle, Adresse, Navigationslink |
+| `sensor.spritgrantler_diesel_guenstigster_zuhause` | günstigster Preis in 5 km um die Zone Zuhause, mit Entfernung |
+| `sensor.spritgrantler_diesel_median` | Median der erfassten Tankstellen |
+| `sensor.spritgrantler_diesel_empfehlung` | z. B. „Jetzt tanken“ oder „Warte bis 9 Uhr“, Attribut `text` mit Begründung |
 
-Damit kann Node-RED z. B. eine Push-Nachricht schicken, wenn Diesel unter einen Wunschpreis fällt.
+Für Super heißen sie `sensor.spritgrantler_super_…`. Die Sensoren haben eine Verlaufsstatistik und eignen sich direkt für Automationen oder Node-RED, z. B. eine Push-Nachricht, wenn `…_guenstigster_zuhause` unter einen Wunschpreis fällt. Nach einem Neustart von Home Assistant erscheinen sie wieder mit der nächsten Sammelrunde.
 
 ## API-Endpunkte
 

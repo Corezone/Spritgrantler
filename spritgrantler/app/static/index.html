@@ -835,14 +835,25 @@ function fillDetails(f){
   if(f.vs_day != null) parts.push(f.vs_day > 0.05 ? `Beste Zeit an dieser Tankstelle an dem Tag: ${timeStr(f.day_best_ts)} Uhr mit ${euro(f.day_best)}, ${eur(f.vs_day)} weniger.` : `Zur besten Zeit des Tages getankt.`);
   return parts.join("<br>");
 }
+function kmBetween(a, b, c, d){
+  const r = 6371, p1 = a*Math.PI/180, p2 = c*Math.PI/180, dp = (c-a)*Math.PI/180, dl = (d-b)*Math.PI/180;
+  const h = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*r*Math.asin(Math.sqrt(h));
+}
 async function showStationOnMap(st){
   showView("map");
-  $("#q").value = st.name; $("#search").classList.add("has");
   setTimeout(async () => {
-    S.center = [st.lat, st.lon]; store.set("center", S.center);
-    circle.setLatLng(S.center); meMarker.setLatLng(S.center); fitRadius();
-    await loadStations();
-    if(S.stations.some(x => x.id === st.id)) openStation(st.id);
+    map.setView([st.lat, st.lon], 14);
+    let s = S.stations.find(x => x.id === st.id);
+    if(!s){
+      // Tankstelle liegt außerhalb des Umkreises: Daten direkt holen, Mitte bleibt dein Standort
+      try{
+        const d = await api(`stations?lat=${st.lat}&lon=${st.lon}&radius_km=0.5&fuel=${S.fuel}`);
+        s = d.stations.find(x => x.id === st.id);
+        if(s){ s.dist_km = kmBetween(S.center[0], S.center[1], s.lat, s.lon); S.stations.push(s); renderMarkers(); }
+      }catch(e){}
+    }
+    if(s) openStation(st.id);
   }, 80);
 }
 function showView(v){ document.querySelector(`#tabs button[data-v="${v}"]`).click(); }

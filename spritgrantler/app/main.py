@@ -260,6 +260,7 @@ async def collector_loop():
                 demo_tick()
             else:
                 await collect_round()
+            await publish_ha_sensors()
             if start - last_clean > 6 * 3600:
                 cleanup()
                 last_clean = start
@@ -935,6 +936,63 @@ def api_recommendations(request: Request, fuel: str = "DIE", lat: float | None =
     con.commit()
     con.close()
     return {"fuel": fuel, "recommendations": recs, "days": full90}
+
+
+# ---------------------------------------------------------------- Sensoren in Home Assistant
+FUEL_SLUG = {"DIE": "diesel", "SUP": "super"}
+FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
+
+
+async def ha_set(entity: str, state, attrs: dict):
+    await client().post(f"{HA_API}/states/{entity}", headers={"Authorization": f"Bearer {SUP_TOKEN}"},
+                        json={"state": state, "attributes": attrs})
+
+
+async def publish_ha_sensors():
+    """Schreibt nach jeder Sammelrunde Sensoren nach Home Assistant (für Automationen und Node-RED)."""
+    if not SUP_TOKEN:
+        return
+    try:
+        home = None
+        for s in await ha_states():
+            if s.get("entity_id") == "zone.home":
+                a = s.get("attributes", {})
+                home = (a.get("latitude"), a.get("longitude"))
+        con = db()
+        now = datetime.now(TZ)
+        for fuel in FUELS:
+            slug, label = FUEL_SLUG[fuel], FUEL_LABEL[fuel]
+            last = con.execute("SELECT * FROM rounds WHERE fuel=? ORDER BY ts DESC LIMIT 1", (fuel,)).fetchone()
+            if not last:
+                continue
+            rows = con.execute("""SELECT s.id, s.name, s.address, s.postal, s.city, s.lat, s.lon, p.price FROM prices p
+                                  JOIN stations s ON s.id=p.station_id WHERE p.fuel=? AND p.last_seen>=?
+                                  ORDER BY p.price ASC""", (fuel, last["ts"] - 60)).fetchall()
+            base = {"unit_of_measurement": "€/l", "state_class": "measurement", "icon": "mdi:gas-station"}
+            stamp = datetime.fromtimestamp(last["ts"], TZ).isoformat()
+
+            def st_attrs(r, name):
+                return {**base, "friendly_name": name, "station": r["name"], "address": f"{r['address']}, {r['postal']} {r['city']}",
+                        "station_latitude": r["lat"], "station_longitude": r["lon"],
+                        "navigation": f"https://www.google.com/maps/dir/?api=1&destination={r['lat']},{r['lon']}", "updated": stamp}
+            if rows:
+                await ha_set(f"sensor.spritgrantler_{slug}_guenstigster", rows[0]["price"], st_attrs(rows[0], f"Spritgrantler {label} günstigster Österreich"))
+            if home and home[0] is not None:
+                near = [r for r in rows if haversine(home[0], home[1], r["lat"], r["lon"]) <= 5]
+                if near:
+                    a = st_attrs(near[0], f"Spritgrantler {label} günstigster Zuhause 5 km")
+                    a["distance_km"] = round(haversine(home[0], home[1], near[0]["lat"], near[0]["lon"]), 1)
+                    await ha_set(f"sensor.spritgrantler_{slug}_guenstigster_zuhause", near[0]["price"], a)
+            await ha_set(f"sensor.spritgrantler_{slug}_median", round(last["median"], 3),
+                         {**base, "icon": "mdi:chart-bell-curve", "friendly_name": f"Spritgrantler {label} Median", "stations": last["n"], "updated": stamp})
+            hours, _, full_days = hourly_profile(con, fuel, 30)
+            rec = recommend(hours, full_days, now)
+            await ha_set(f"sensor.spritgrantler_{slug}_empfehlung", rec["title"],
+                         {"friendly_name": f"Spritgrantler {label} Empfehlung", "icon": "mdi:clock-check-outline",
+                          "text": rec["text"], "level": rec["level"], "best_hours": rec["best_hours"], "updated": stamp})
+        con.close()
+    except Exception as e:  # noqa: BLE001
+        log.warning("Sensoren nach Home Assistant fehlgeschlagen: %s", e)
 
 
 @app.get("/")
