@@ -57,7 +57,26 @@ nav.tabs button.on{background:var(--accent-soft);color:var(--accent-ink)}
 /* ---------- Karte ---------- */
 #map{position:absolute;inset:0;background:#E9EDF1}
 .leaflet-container{font-family:Inter}
-.map-ctrl{position:absolute;top:10px;left:12px;right:12px;z-index:500;display:flex;gap:8px;align-items:stretch;pointer-events:none}
+.leaflet-tile-pane{filter:saturate(.35) brightness(1.04) contrast(.92)}
+.map-ctrl{position:absolute;top:10px;left:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.ctrl-row{display:flex;gap:8px;align-items:stretch}
+.search{position:relative;display:flex;align-items:center;gap:10px;padding:0 8px 0 16px;min-height:52px;color:var(--muted)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:none;font:500 16px Inter;color:var(--text);height:50px}
+.search input::placeholder{color:var(--faint)}
+.search .clear{width:40px;height:40px;border-radius:12px;display:none;place-items:center;color:var(--muted)}
+.search.has .clear{display:grid}
+.results{display:none;padding:6px;max-height:50vh;overflow:auto}
+.results.on{display:block}
+.results button{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;padding:12px;border-radius:14px;font-size:14px}
+.results button:hover{background:var(--bg)}
+.results button svg{margin-top:1px;color:var(--accent)}
+.results .muted{padding:12px;color:var(--muted);font-size:14px}
+.loc-list{display:grid;gap:8px;margin-top:14px}
+.loc-item{display:flex;align-items:center;gap:14px;width:100%;min-height:60px;padding:10px 14px;border:1px solid var(--line);border-radius:18px;text-align:left;background:var(--surface)}
+.loc-item:hover{background:var(--bg)}
+.loc-item .ic{width:40px;height:40px;border-radius:13px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+.loc-item b{display:block;font-weight:600}
+.loc-item small{color:var(--muted)}
 .map-ctrl > *{pointer-events:auto}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow)}
 .radius{flex:1;display:flex;align-items:center;gap:12px;padding:10px 16px;min-width:0}
@@ -191,6 +210,10 @@ table.data th:first-child,table.data td:first-child{text-align:left}
   <symbol id="i-loc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></symbol>
   <symbol id="i-nav" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8-8-2z"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
 </svg>
 
@@ -211,12 +234,21 @@ table.data th:first-child,table.data td:first-child{text-align:left}
     <section class="view on" id="v-map">
       <div id="map"></div>
       <div class="map-ctrl">
+        <div class="card">
+          <div class="search" id="search"><svg class="i"><use href="#i-search"/></svg>
+            <input id="q" type="text" inputmode="search" placeholder="Adresse oder Ort suchen" autocomplete="off" enterkeyhint="search" aria-label="Adresse suchen">
+            <button class="clear" id="qClear" aria-label="Suche leeren"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="results" id="results"></div>
+        </div>
+        <div class="ctrl-row">
         <div class="card radius">
           <label>Radius</label>
           <input type="range" id="radius" min="1" max="50" step="1" value="5" aria-label="Radius in Kilometern">
           <b id="radiusVal">5 km</b>
         </div>
-        <button class="card icon-btn" id="locBtn" title="Mein Standort" aria-label="Mein Standort"><svg class="i"><use href="#i-loc"/></svg></button>
+        <button class="card icon-btn" id="locBtn" title="Standort wählen" aria-label="Standort wählen"><svg class="i"><use href="#i-loc"/></svg></button>
+        </div>
       </div>
       <div class="sheet" id="sheet">
         <div class="grab" id="grab"><i></i></div>
@@ -333,9 +365,9 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 let map, circle, meMarker, markers = L.layerGroup();
 function initMap(){
   map = L.map("map", {zoomControl:false, attributionControl:true}).setView(S.center, 13);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19, subdomains:"abcd",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
   }).addTo(map);
   markers.addTo(map);
   circle = L.circle(S.center, {radius:S.radius*1000, color:"#3E5468", weight:1.5, fillColor:"#3A76A8", fillOpacity:.06, dashArray:"6 6"}).addTo(map);
@@ -344,7 +376,7 @@ function initMap(){
   map.on("click", e => setCenter([e.latlng.lat, e.latlng.lng]));
   fitRadius();
 }
-function fitRadius(){ map.fitBounds(circle.getBounds(), {paddingTopLeft:[20,80], paddingBottomRight: innerWidth >= 900 ? [460,20] : [20, innerHeight*0.46]}); }
+function fitRadius(){ map.fitBounds(circle.getBounds(), {paddingTopLeft:[20,140], paddingBottomRight: innerWidth >= 900 ? [460,20] : [20, innerHeight*0.46]}); }
 function setCenter(c, fit=true){
   S.center = c; store.set("center", c);
   circle.setLatLng(c); meMarker.setLatLng(c);
@@ -697,15 +729,64 @@ rad.value = S.radius; $("#radiusVal").textContent = S.radius + " km";
 rad.addEventListener("input", () => { S.radius = +rad.value; $("#radiusVal").textContent = S.radius + " km"; circle.setRadius(S.radius*1000); });
 rad.addEventListener("change", () => { store.set("radius", S.radius); fitRadius(); loadStations(); });
 
-$("#locBtn").addEventListener("click", () => {
-  if(!navigator.geolocation){ alertBox("Standort wird von diesem Browser nicht unterstützt."); return; }
-  const b = $("#locBtn"); b.classList.add("busy");
+$("#locBtn").addEventListener("click", openLocPicker);
+async function openLocPicker(){
+  $("#box").innerHTML = `<div class="box-head"><h2>Standort wählen</h2><button class="close" onclick="closeModal()" aria-label="Schließen"><svg class="i"><use href="#i-x"/></svg></button></div>
+    <div class="st-sub" style="white-space:normal">Die Mitte der Karte kannst du auch per Tippen auf die Karte oder Ziehen des blauen Punkts setzen.</div>
+    <div class="loc-list" id="locList"><div class="empty">Lade Standorte aus Home Assistant…</div></div>`;
+  $("#modal").classList.add("on");
+  let items = "";
+  try{
+    const d = await api("ha/locations");
+    S.haLocs = d.locations || [];
+    items = S.haLocs.map((l,i) => `<button class="loc-item" data-i="${i}"><span class="ic"><svg class="i"><use href="#${l.home ? "i-home" : "i-user"}"/></svg></span>
+      <span><b>${esc(l.name)}</b><small>${l.home ? "Zone Zuhause" : (l.state === "home" ? "gerade zuhause" : (l.state === "not_home" ? "unterwegs" : esc(l.state)))}</small></span></button>`).join("");
+    if(!d.available) items = `<div class="empty">Home Assistant ist nicht erreichbar. Das funktioniert nur, wenn Spritgrantler als App in Home Assistant läuft.</div>`;
+  }catch(e){ items = `<div class="empty">Home Assistant ist nicht erreichbar.</div>`; }
+  items += `<button class="loc-item" data-gps="1"><span class="ic"><svg class="i"><use href="#i-loc"/></svg></span><span><b>GPS dieses Geräts</b><small>Klappt nur bei direktem HTTPS-Zugriff, nicht im Home-Assistant-Fenster</small></span></button>`;
+  $("#locList").innerHTML = items;
+  $("#locList").querySelectorAll(".loc-item").forEach(b => b.addEventListener("click", () => {
+    if(b.dataset.gps){ useGps(); return; }
+    const l = S.haLocs[+b.dataset.i]; closeModal(); setPlace(l.name, [l.lat, l.lon]);
+  }));
+}
+function useGps(){
+  if(!navigator.geolocation){ alertBox("Dieser Browser kann den Standort nicht liefern."); return; }
+  const b = $("#locBtn"); b.classList.add("busy"); closeModal();
   navigator.geolocation.getCurrentPosition(
-    p => { b.classList.remove("busy"); setCenter([p.coords.latitude, p.coords.longitude]); },
-    e => { b.classList.remove("busy"); alertBox("Standort nicht verfügbar. Tippe stattdessen auf die Karte, um die Mitte zu setzen. (Standort braucht HTTPS.)"); },
+    p => { b.classList.remove("busy"); setPlace("Mein Standort", [p.coords.latitude, p.coords.longitude]); },
+    e => { b.classList.remove("busy"); alertBox("Der Browser gibt den Standort hier nicht frei. Im Home-Assistant-Fenster ist das gesperrt. Nimm stattdessen deine Person aus Home Assistant oder such eine Adresse."); },
     {enableHighAccuracy:true, timeout:10000}
   );
-});
+}
+function setPlace(label, c){
+  $("#q").value = label === "Mein Standort" ? "" : label; $("#search").classList.toggle("has", !!$("#q").value);
+  $("#results").classList.remove("on");
+  setCenter(c);
+}
+
+// Adresssuche
+let qTimer, qSeq = 0;
+async function runSearch(){
+  const q = $("#q").value.trim(), R = $("#results");
+  $("#search").classList.toggle("has", !!q);
+  if(q.length < 3){ R.classList.remove("on"); return; }
+  const seq = ++qSeq;
+  R.innerHTML = '<div class="muted">Suche…</div>'; R.classList.add("on");
+  try{
+    const d = await api("geocode?q=" + encodeURIComponent(q));
+    if(seq !== qSeq) return;
+    S.geo = d.results;
+    R.innerHTML = d.results.length ? d.results.map((r,i) => `<button data-i="${i}"><svg class="i"><use href="#i-pin"/></svg><span>${esc(r.name)}</span></button>`).join("")
+      : '<div class="muted">Nichts gefunden. Versuch es mit Straße und Ort.</div>';
+    R.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      const r = S.geo[+b.dataset.i]; setPlace(r.name.split(",").slice(0,2).join(","), [r.lat, r.lon]); $("#q").blur();
+    }));
+  }catch(e){ if(seq === qSeq) R.innerHTML = '<div class="muted">Adresssuche gerade nicht erreichbar.</div>'; }
+}
+$("#q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(runSearch, 600); });
+$("#q").addEventListener("keydown", e => { if(e.key === "Enter"){ clearTimeout(qTimer); runSearch(); } });
+$("#qClear").addEventListener("click", () => { $("#q").value = ""; $("#search").classList.remove("has"); $("#results").classList.remove("on"); $("#q").focus(); });
 function alertBox(msg){ $("#box").innerHTML = `<div class="box-head"><h2>Hinweis</h2><button class="close" onclick="closeModal()" aria-label="Schließen"><svg class="i"><use href="#i-x"/></svg></button></div><p>${esc(msg)}</p>`; $("#modal").classList.add("on"); }
 
 // Bottom-Sheet: Ziehen bzw. Antippen wechselt die Höhe
@@ -725,7 +806,10 @@ let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() 
 // ---------- Start ----------
 (async () => {
   try{ S.cfg = await api("config"); }catch(e){ S.cfg = {center:[48.2082,16.3738]}; }
-  if(!S.center) S.center = S.cfg.center;
+  if(!S.center){
+    S.center = S.cfg.center;
+    try{ const d = await api("ha/locations"); const h = (d.locations||[]).find(l => l.home); if(h){ S.center = [h.lat, h.lon]; $("#q").value = ""; } }catch(e){}
+  }
   document.querySelectorAll("#fuelSeg button").forEach(b => b.classList.toggle("on", b.dataset.f === S.fuel));
   initMap(); loadStations(); refreshStatus();
   setInterval(() => { refreshStatus(); if(S.view==="map") loadStations(); if(S.view==="stats") loadStats(); }, 120000);

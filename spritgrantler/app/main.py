@@ -580,6 +580,60 @@ def api_info():
             "last_error": STATE["last_error"], "targets": len(STATE["targets"]), **api_config()}
 
 
+# ---------------------------------------------------------------- Home Assistant + Adresssuche
+SUP_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
+HA_API = os.environ.get("HA_API", "http://supervisor/core/api")
+_geo_cache: dict = {}
+_geo_last = [0.0]
+
+
+@app.get("/api/ha/locations")
+async def api_ha_locations():
+    """Personen und Zuhause aus Home Assistant (nur als HA-App verfügbar)."""
+    if not SUP_TOKEN:
+        return {"available": False, "locations": []}
+    try:
+        r = await client().get(f"{HA_API}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"})
+        r.raise_for_status()
+        out = []
+        for s in r.json():
+            eid, a = s.get("entity_id", ""), s.get("attributes", {})
+            if a.get("latitude") is None or a.get("longitude") is None:
+                continue
+            if eid.startswith("person.") or eid == "zone.home":
+                name = "Zuhause" if eid == "zone.home" else a.get("friendly_name", eid)
+                out.append({"id": eid, "name": name, "lat": a["latitude"], "lon": a["longitude"],
+                            "state": s.get("state"), "home": eid == "zone.home"})
+        out.sort(key=lambda x: (not x["home"], x["name"]))
+        return {"available": True, "locations": out}
+    except Exception as e:  # noqa: BLE001
+        log.warning("Home-Assistant-API nicht erreichbar: %s", e)
+        return {"available": False, "locations": [], "error": str(e)}
+
+
+@app.get("/api/geocode")
+async def api_geocode(q: str = Query(..., min_length=3, max_length=200)):
+    """Adresssuche über OpenStreetMap Nominatim, auf Österreich beschränkt."""
+    key = q.strip().lower()
+    if key in _geo_cache:
+        return _geo_cache[key]
+    wait = 1.1 - (time.time() - _geo_last[0])  # Nominatim: max. 1 Anfrage pro Sekunde
+    if wait > 0:
+        await asyncio.sleep(wait)
+    _geo_last[0] = time.time()
+    try:
+        r = await client().get("https://nominatim.openstreetmap.org/search",
+                               params={"q": q, "format": "jsonv2", "countrycodes": "at", "limit": 6,
+                                       "accept-language": "de", "addressdetails": 0})
+        r.raise_for_status()
+        res = {"results": [{"name": x.get("display_name", ""), "lat": float(x["lat"]), "lon": float(x["lon"])} for x in r.json()]}
+    except Exception as e:  # noqa: BLE001
+        log.warning("Adresssuche fehlgeschlagen: %s", e)
+        raise HTTPException(502, "Adresssuche nicht erreichbar")
+    _geo_cache[key] = res
+    return res
+
+
 @app.get("/")
 def index():
     return FileResponse(BASE / "static" / "index.html", headers={"Cache-Control": "no-cache"})
