@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -83,6 +84,12 @@ def init_db():
         CREATE TABLE IF NOT EXISTS rounds(
             ts INTEGER, fuel TEXT, n INTEGER, min REAL, p25 REAL, median REAL,
             PRIMARY KEY(ts, fuel));
+        CREATE TABLE IF NOT EXISTS fillups(
+            id INTEGER PRIMARY KEY, user_id TEXT, user_name TEXT, ts INTEGER, station_id INTEGER,
+            station_name TEXT, lat REAL, lon REAL, fuel TEXT, liters REAL, price REAL,
+            market_median REAL, market_min REAL, local_min REAL, local_min_name TEXT,
+            day_best REAL, day_best_ts INTEGER, day_final INTEGER DEFAULT 0, created INTEGER);
+        CREATE INDEX IF NOT EXISTS ix_fill_user ON fillups(user_id, ts);
         """
     )
     con.commit()
@@ -658,6 +665,142 @@ async def api_geocode(q: str = Query(..., min_length=3, max_length=200)):
         raise HTTPException(502, "Adresssuche nicht erreichbar")
     _geo_cache[key] = res
     return res
+
+
+# ---------------------------------------------------------------- Tankbuch
+class FillupIn(BaseModel):
+    station_id: int | None = None
+    station_name: str = Field(..., min_length=1, max_length=120)
+    fuel: str = "DIE"
+    liters: float = Field(..., gt=0.5, le=300)
+    price: float = Field(..., gt=0.5, lt=5)
+    ts: int | None = None
+    lat: float | None = None
+    lon: float | None = None
+
+
+def who(request: Request):
+    uid = request.headers.get("X-Remote-User-Id") or "lokal"
+    name = request.headers.get("X-Remote-User-Display-Name") or request.headers.get("X-Remote-User-Name") or "Ich"
+    return uid, name
+
+
+def market_at(con, fuel: str, ts: int):
+    r = con.execute("SELECT median, min FROM rounds WHERE fuel=? AND ts<=? AND ts>=? ORDER BY ts DESC LIMIT 1",
+                    (fuel, ts, ts - 3 * 3600)).fetchone()
+    if not r:
+        r = con.execute("SELECT median, min FROM rounds WHERE fuel=? ORDER BY ABS(ts-?) LIMIT 1", (fuel, ts)).fetchone()
+    return (r["median"], r["min"]) if r else (None, None)
+
+
+def local_min_at(con, fuel: str, ts: int, lat, lon, km=5.0):
+    if lat is None or lon is None:
+        return None, None
+    slack = CFG["interval_min"] * 60
+    rows = con.execute(
+        """SELECT p.price, s.name, s.lat, s.lon FROM prices p JOIN stations s ON s.id=p.station_id
+           WHERE p.fuel=? AND p.first_seen<=? AND p.last_seen>=?""", (fuel, ts, ts - slack)).fetchall()
+    best = None
+    for r in rows:
+        if haversine(lat, lon, r["lat"], r["lon"]) <= km and (best is None or r["price"] < best[0]):
+            best = (r["price"], r["name"])
+    return best if best else (None, None)
+
+
+def day_best(con, station_id, fuel: str, ts: int):
+    """Günstigster Preis dieser Tankstelle am selben Kalendertag."""
+    if not station_id:
+        return None, None
+    d = local(ts)
+    start = int(datetime(d.year, d.month, d.day, tzinfo=TZ).timestamp())
+    end = start + 86400
+    r = con.execute("""SELECT price, first_seen FROM prices WHERE station_id=? AND fuel=? AND first_seen<? AND last_seen>=?
+                       ORDER BY price ASC, first_seen ASC LIMIT 1""", (station_id, fuel, end, start)).fetchone()
+    return (r["price"], max(r["first_seen"], start)) if r else (None, None)
+
+
+def fill_view(con, f) -> dict:
+    f = dict(f)
+    if not f["day_final"]:
+        db_, dts = day_best(con, f["station_id"], f["fuel"], f["ts"])
+        if db_ is not None:
+            f["day_best"], f["day_best_ts"] = db_, dts
+        d = local(f["ts"])
+        if time.time() > datetime(d.year, d.month, d.day, tzinfo=TZ).timestamp() + 86400 + 3600:
+            con.execute("UPDATE fillups SET day_best=?, day_best_ts=?, day_final=1 WHERE id=?", (f["day_best"], f["day_best_ts"], f["id"]))
+    L = f["liters"]
+    f["total"] = round(L * f["price"], 2)
+    f["vs_median"] = round((f["market_median"] - f["price"]) * L, 2) if f["market_median"] else None
+    f["vs_local"] = round((f["price"] - f["local_min"]) * L, 2) if f["local_min"] else None
+    f["vs_day"] = round((f["price"] - f["day_best"]) * L, 2) if f["day_best"] else None
+    return f
+
+
+@app.post("/api/fillups")
+def api_fill_add(body: FillupIn, request: Request):
+    fuel = check_fuel(body.fuel)
+    uid, uname = who(request)
+    ts = body.ts or int(time.time())
+    if ts > time.time() + 300:
+        raise HTTPException(400, "Zeitpunkt liegt in der Zukunft")
+    con = db()
+    lat, lon = body.lat, body.lon
+    if body.station_id:
+        s = con.execute("SELECT lat, lon FROM stations WHERE id=?", (body.station_id,)).fetchone()
+        if s:
+            lat, lon = s["lat"], s["lon"]
+    med, mn = market_at(con, fuel, ts)
+    lmin, lname = local_min_at(con, fuel, ts, lat, lon)
+    cur = con.execute(
+        """INSERT INTO fillups(user_id,user_name,ts,station_id,station_name,lat,lon,fuel,liters,price,
+           market_median,market_min,local_min,local_min_name,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (uid, uname, ts, body.station_id, body.station_name.strip(), lat, lon, fuel, body.liters, body.price,
+         med, mn, lmin, lname, int(time.time())))
+    fid = cur.lastrowid
+    f = fill_view(con, con.execute("SELECT * FROM fillups WHERE id=?", (fid,)).fetchone())
+    con.commit()
+    con.close()
+    return f
+
+
+@app.get("/api/fillups")
+def api_fill_list(request: Request):
+    uid, uname = who(request)
+    con = db()
+    items = [fill_view(con, f) for f in con.execute("SELECT * FROM fillups WHERE user_id=? ORDER BY ts DESC", (uid,))]
+    con.commit()
+    con.close()
+    s = lambda key: round(sum(i[key] for i in items if i[key] is not None), 2)  # noqa: E731
+    liters = round(sum(i["liters"] for i in items), 1)
+    spent = round(sum(i["total"] for i in items), 2)
+    with_med = [i for i in items if i["market_median"]]
+    summary = {
+        "count": len(items), "liters": liters, "spent": spent,
+        "avg_price": round(spent / liters, 3) if liters else None,
+        "avg_market": round(sum(i["market_median"] * i["liters"] for i in with_med) / sum(i["liters"] for i in with_med), 3) if with_med else None,
+        "saved_vs_median": s("vs_median"), "missed_local": s("vs_local"), "missed_day": s("vs_day"),
+    }
+    monthly: dict = {}
+    for i in items:
+        m = local(i["ts"]).strftime("%Y-%m")
+        e = monthly.setdefault(m, {"month": m, "saved": 0.0, "liters": 0.0, "spent": 0.0})
+        e["saved"] += i["vs_median"] or 0
+        e["liters"] += i["liters"]
+        e["spent"] += i["total"]
+    months = [{k: (round(v, 2) if isinstance(v, float) else v) for k, v in e.items()} for e in sorted(monthly.values(), key=lambda x: x["month"])]
+    return {"user": uname, "items": items, "summary": summary, "monthly": months}
+
+
+@app.delete("/api/fillups/{fid}")
+def api_fill_delete(fid: int, request: Request):
+    uid, _ = who(request)
+    con = db()
+    n = con.execute("DELETE FROM fillups WHERE id=? AND user_id=?", (fid, uid)).rowcount
+    con.commit()
+    con.close()
+    if not n:
+        raise HTTPException(404, "Eintrag nicht gefunden")
+    return {"deleted": fid}
 
 
 @app.get("/")

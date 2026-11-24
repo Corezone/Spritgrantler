@@ -165,6 +165,28 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .stats-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 12px}
 .stats-head h2{margin:0;font-size:22px}
 .seg.small button{padding:8px 13px;font-size:13px}
+.big-cta{margin-top:0;min-height:64px;font-size:17px;border-radius:20px}
+.btn.secondary{background:var(--accent-soft);color:var(--accent-ink)}
+.fill{padding:14px 0;border-bottom:1px solid var(--neutral)}
+.fill:last-child{border:0}
+.fill-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.fill-top b{display:block}
+.verdict{font:700 15px "Space Grotesk";white-space:nowrap;padding:5px 11px;border-radius:999px}
+.verdict.good{background:#E1ECF5;color:#24507A}
+.verdict.bad{background:var(--warm-soft);color:#8A4A1E}
+.verdict.neutral{background:var(--neutral);color:var(--muted)}
+.fill-more{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+.fill-del{font-size:12px;color:var(--muted);font-weight:600;margin-top:6px}
+.fill-del.armed{color:var(--warm)}
+.form{display:grid;gap:14px;margin-top:16px}
+.form label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:500}
+.form input,.form select{font:500 17px Inter;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:0 14px;height:54px;background:var(--surface);width:100%}
+.form input:focus,.form select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.form .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.total{display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px;border-radius:16px;background:var(--bg)}
+.total b{font:700 26px "Space Grotesk"}
+.result-big{font:700 34px/1.1 "Space Grotesk";margin:16px 0 6px}
+.result-big.good{color:#24507A}.result-big.bad{color:#8A4A1E}
 /* ---------- Info ---------- */
 .rows{padding:6px 18px}
 .row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--neutral)}
@@ -198,7 +220,8 @@ table.data th:first-child,table.data td:first-child{text-align:left}
   .modal{align-items:center}
   .modal .box{border-radius:28px}
 }
-@media (max-width:380px){ .seg button{padding:9px 12px} nav.tabs button{padding:12px 14px} }
+@media (max-width:560px){ nav.tabs{gap:2px} nav.tabs button{flex-direction:column;gap:2px;padding:8px 14px;font-size:11px} }
+@media (max-width:380px){ .seg button{padding:9px 12px} nav.tabs button{padding:8px 10px} }
 </style>
 </head>
 <body>
@@ -309,6 +332,25 @@ table.data th:first-child,table.data td:first-child{text-align:left}
       </div></div>
     </section>
 
+    <!-- Tankbuch -->
+    <section class="view" id="v-fill">
+      <div class="scroll"><div class="wrap" style="max-width:760px">
+        <div class="stats-head"><h2>Tankbuch</h2><span class="st-sub" id="fillUser"></span></div>
+        <button class="btn primary big-cta" id="fillBtn"><svg class="i"><use href="#i-fuel"/></svg>Ich war tanken</button>
+        <div class="kpis" id="fillKpis" style="margin-top:14px"></div>
+        <div class="card panel" id="fillInsight"></div>
+        <div class="card panel" style="margin-top:14px">
+          <h3>Ersparnis je Tankvorgang</h3>
+          <div class="sub">Gegenüber dem Median zum Zeitpunkt des Tankens, in Euro. Blau gespart, Kupfer zu teuer</div>
+          <div class="chart" id="cFill"></div>
+        </div>
+        <div class="card panel" style="margin-top:14px">
+          <h3>Verlauf</h3>
+          <div id="fillList"></div>
+        </div>
+      </div></div>
+    </section>
+
     <!-- Info -->
     <section class="view" id="v-info">
       <div class="scroll"><div class="wrap" style="max-width:640px">
@@ -320,6 +362,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 
   <nav class="tabs" id="tabs">
     <button data-v="map" class="on"><svg class="i"><use href="#i-map"/></svg>Karte</button>
+    <button data-v="fill"><svg class="i"><use href="#i-fuel"/></svg>Tanken</button>
     <button data-v="stats"><svg class="i"><use href="#i-chart"/></svg>Statistik</button>
     <button data-v="info"><svg class="i"><use href="#i-info"/></svg>Info</button>
   </nav>
@@ -450,6 +493,7 @@ async function openStation(id){
     <div class="big-price">${priceHTML(s.price)}<span style="font-size:18px;color:var(--muted)"> €/l</span></div>
     <div class="st-sub" style="white-space:normal">${FUEL_NAME[S.fuel]} · zuletzt gesehen ${ago(s.seen)} · Preis gilt seit ${timeStr(s.since)}</div>
     <a class="btn primary" href="${navUrl(s)}" target="_blank" rel="noopener"><svg class="i"><use href="#i-nav"/></svg>In Google Maps navigieren</a>
+    <button class="btn secondary" onclick="openFillForm(${s.id})"><svg class="i"><use href="#i-fuel"/></svg>Ich war hier tanken</button>
     <h3 style="margin:22px 0 4px;font-size:16px">Preisverlauf dieser Tankstelle</h3>
     <div class="st-sub">Letzte 7 Tage. Lücken: Die Tankstelle war nicht unter den günstigsten.</div>
     <div class="chart" id="cStation" style="margin-top:10px"><div class="empty">Lade…</div></div>
@@ -508,12 +552,13 @@ function barChart(box, vals, opt){
     if(i % every === 0){ const tx = el("text", {x:x + bw/2, y:H-8, "text-anchor":"middle"}, ax); tx.textContent = labels[i]; }
     if(v == null) return;
     const y0 = y(0), y1 = y(v), top = Math.min(y0,y1), h = Math.max(1.5, Math.abs(y1-y0));
-    const col = v <= 0 ? "#3A76A8" : "#B0652E";
+    const good = opt.goodPositive ? v >= 0 : v <= 0;
+    const col = good ? "#3A76A8" : "#B0652E";
     const gap = N > 12 ? 2 : Math.min(18, bw*.3);
     const r = el("rect", {x:x+gap/2, y:top, width:bw-gap, height:h, rx:4, fill:col, opacity: opt.now===i ? 1 : .82}, svg);
     if(opt.now === i){ el("rect", {x:x-.5, y:m.t-6, width:bw+1, height:H-m.t-m.b+6, rx:6, fill:"none", stroke:"#15191E", "stroke-width":1.5, "stroke-dasharray":"3 3"}, svg); }
     const hit = el("rect", {x, y:m.t, width:bw, height:H-m.t-m.b, fill:"transparent"}, svg);
-    const html = `${opt.tipLabel ? opt.tipLabel(i) : i + ":00–" + i + ":59 Uhr"}<br><b>${v>0?"+":""}${v.toFixed(1).replace(".", ",")} ct</b> ${v<=0?"unter":"über"} Tagesschnitt`;
+    const html = opt.tipHtml ? opt.tipHtml(i, v) : `${opt.tipLabel ? opt.tipLabel(i) : i + ":00–" + i + ":59 Uhr"}<br><b>${v>0?"+":""}${v.toFixed(1).replace(".", ",")} ct</b> ${v<=0?"unter":"über"} Tagesschnitt`;
     hit.addEventListener("pointermove", e => showTip(html, e.clientX, e.clientY));
     hit.addEventListener("pointerleave", hideTip);
   });
@@ -678,6 +723,115 @@ document.querySelectorAll("#periodSeg button").forEach(b => {
   });
 });
 
+// ---------- Tankbuch ----------
+const eur = v => (v<0?"−":"") + Math.abs(v).toFixed(2).replace(".", ",") + " €";
+const num = v => parseFloat(String(v).replace(",", "."));
+function verdict(v){
+  if(v == null) return '<span class="verdict neutral">kein Vergleich</span>';
+  if(Math.abs(v) < 0.05) return '<span class="verdict neutral">genau Ø</span>';
+  return v > 0 ? `<span class="verdict good">${eur(v)} gespart</span>` : `<span class="verdict bad">${eur(-v)} zu teuer</span>`;
+}
+function localDT(ts){ const d = new Date(ts*1000); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,16); }
+
+function openFillForm(stationId){
+  const list = S.stations.slice().sort((a,b) => a.dist_km - b.dist_km);
+  const pre = stationId ? list.find(x => x.id === stationId) : list[0];
+  const opts = list.map(x => `<option value="${x.id}" ${pre && x.id===pre.id ? "selected" : ""}>${esc(x.name)} · ${km(x.dist_km)}</option>`).join("");
+  $("#box").innerHTML = `<div class="box-head"><h2>Ich war tanken</h2><button class="close" onclick="closeModal()" aria-label="Schließen"><svg class="i"><use href="#i-x"/></svg></button></div>
+    <div class="form">
+      <label>Tankstelle<select id="fSt">${opts}<option value="other">Andere Tankstelle …</option></select></label>
+      <label id="fNameWrap" style="display:none">Name der Tankstelle<input id="fName" type="text" placeholder="z. B. OMV Wagramer Straße"></label>
+      <div class="seg" id="fFuel" style="justify-self:start"><button data-f="DIE">Diesel</button><button data-f="SUP">Super</button></div>
+      <div class="two">
+        <label>Liter<input id="fL" type="text" inputmode="decimal" placeholder="45,00"></label>
+        <label>Preis pro Liter<input id="fP" type="text" inputmode="decimal" placeholder="1,599"></label>
+      </div>
+      <label>Wann<input id="fT" type="datetime-local" value="${localDT(Date.now()/1000)}"></label>
+      <div class="total"><span>Betrag</span><b id="fTot">–</b></div>
+      <button class="btn primary" id="fSave" style="margin-top:0">Speichern und vergleichen</button>
+      <div class="st-sub" style="white-space:normal">Den Preis übernehme ich von der Tankstelle. Ändere ihn, falls du anders bezahlt hast.</div>
+    </div>`;
+  $("#modal").classList.add("on");
+  let fuel = S.fuel;
+  const setFuel_ = f => { fuel = f; $("#fFuel").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.f === f)); };
+  setFuel_(fuel);
+  const tot = () => { const l = num($("#fL").value), p = num($("#fP").value); $("#fTot").textContent = l>0 && p>0 ? eur(l*p) : "–"; };
+  const prefill = () => {
+    const id = $("#fSt").value; $("#fNameWrap").style.display = id === "other" ? "grid" : "none";
+    const st = S.stations.find(x => String(x.id) === id);
+    if(st && fuel === S.fuel) $("#fP").value = st.price.toFixed(3).replace(".", ",");
+    tot();
+  };
+  $("#fFuel").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { setFuel_(b.dataset.f); if(fuel !== S.fuel) $("#fP").value = ""; prefill(); }));
+  $("#fSt").addEventListener("change", prefill);
+  $("#fL").addEventListener("input", tot); $("#fP").addEventListener("input", tot);
+  prefill();
+  $("#fSave").addEventListener("click", async () => {
+    const id = $("#fSt").value, st = S.stations.find(x => String(x.id) === id);
+    const body = { fuel, liters: num($("#fL").value), price: num($("#fP").value),
+      ts: Math.floor(new Date($("#fT").value).getTime()/1000),
+      station_id: st ? st.id : null, station_name: st ? st.name : ($("#fName").value.trim() || "Unbekannte Tankstelle"),
+      lat: st ? st.lat : S.center[0], lon: st ? st.lon : S.center[1] };
+    if(!(body.liters > 0.5)) { $("#fL").focus(); return; }
+    if(!(body.price > 0.5 && body.price < 5)) { $("#fP").focus(); return; }
+    $("#fSave").disabled = true; $("#fSave").textContent = "Speichere …";
+    try{
+      const r = await fetch("api/fillups", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+      if(!r.ok) throw new Error((await r.json()).detail || r.status);
+      showFillResult(await r.json());
+    }catch(e){ $("#fSave").disabled = false; $("#fSave").textContent = "Speichern und vergleichen"; alertBox("Speichern fehlgeschlagen: " + e.message); }
+  });
+}
+
+function showFillResult(f){
+  const v = f.vs_median, good = v != null && v >= 0;
+  $("#box").innerHTML = `<div class="box-head"><h2>${v == null ? "Gespeichert" : good ? "Gut getankt" : "Da grantelt Arya"}</h2><button class="close" onclick="closeModal()" aria-label="Schließen"><svg class="i"><use href="#i-x"/></svg></button></div>
+    ${v != null ? `<div class="result-big ${good ? "good" : "bad"}">${good ? eur(v) + " gespart" : eur(-v) + " zu teuer"}</div>
+    <div class="st-sub" style="white-space:normal">gegenüber dem Median von ${euro(f.market_median)} zu diesem Zeitpunkt</div>` : '<p>Für diesen Zeitpunkt gibt es noch keine Marktdaten.</p>'}
+    <div class="fill-more" style="margin-top:14px">${fillDetails(f)}</div>
+    <button class="btn primary" onclick="closeModal(); showView('fill')">Zum Tankbuch</button>`;
+  if(S.view === "fill") loadFill();
+}
+function fillDetails(f){
+  const parts = [];
+  if(f.vs_local != null && f.local_min_name) parts.push(f.vs_local > 0.05 ? `Günstigste in 5 km: ${esc(f.local_min_name)} mit ${euro(f.local_min)}, dort wärst du ${eur(f.vs_local)} billiger gewesen.` : `Du warst bei der günstigsten Tankstelle in 5 km.`);
+  if(f.vs_day != null) parts.push(f.vs_day > 0.05 ? `Beste Zeit an dieser Tankstelle an dem Tag: ${timeStr(f.day_best_ts)} Uhr mit ${euro(f.day_best)}, ${eur(f.vs_day)} weniger.` : `Zur besten Zeit des Tages getankt.`);
+  return parts.join("<br>");
+}
+function showView(v){ document.querySelector(`#tabs button[data-v="${v}"]`).click(); }
+
+async function loadFill(){
+  try{
+    const d = await api("fillups"), sm = d.summary;
+    $("#fillUser").textContent = d.user || "";
+    const sv = sm.saved_vs_median;
+    $("#fillKpis").innerHTML =
+      kpi("Gespart ggü. Ø", sm.count ? `<span style="color:${sv>=0?"#24507A":"#8A4A1E"}">${eur(sv)}</span>` : "–", sm.count ? (sv>=0 ? "unter dem Durchschnitt" : "über dem Durchschnitt") : "noch keine Einträge") +
+      kpi("Getankt", sm.count ? sm.liters.toFixed(0) + " l" : "–", sm.count + (sm.count === 1 ? " Tankvorgang" : " Tankvorgänge")) +
+      kpi("Ausgegeben", sm.count ? eur(sm.spent) : "–", "") +
+      kpi("Ø bezahlt", priceHTML(sm.avg_price), sm.avg_market ? "Markt Ø " + euro(sm.avg_market) : "");
+    $("#fillInsight").innerHTML = !sm.count ? '<div class="empty">Tipp nach dem Tanken auf „Ich war tanken“. Ich vergleiche deinen Preis mit dem Markt, der günstigsten Tankstelle in 5 km und der besten Tageszeit.</div>' :
+      `<h3>Was drin gewesen wäre</h3><div class="rows" style="padding:0">
+        <div class="row"><span>Immer bei der günstigsten in 5 km</span><b>${eur(Math.max(0, sm.missed_local))} weniger</b></div>
+        <div class="row"><span>Immer zur besten Tageszeit</span><b>${eur(Math.max(0, sm.missed_day))} weniger</b></div></div>`;
+    const last = d.items.slice(0, 20).reverse();
+    if(last.length){
+      barChart($("#cFill"), last.map(f => f.vs_median), {goodPositive:true, labels: last.map(f => new Date(f.ts*1000).toLocaleDateString("de-AT",{day:"numeric",month:"numeric"})),
+        every: Math.ceil(last.length/8), label:"Ersparnis je Tankvorgang",
+        tipHtml: (i, v) => `${esc(last[i].station_name)}<br>${new Date(last[i].ts*1000).toLocaleString("de-AT",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})}<br><b>${v>=0 ? eur(v)+" gespart" : eur(-v)+" zu teuer"}</b>`});
+    } else $("#cFill").innerHTML = '<div class="empty">Noch keine Tankvorgänge.</div>';
+    $("#fillList").innerHTML = d.items.length ? d.items.map(f => `<div class="fill">
+      <div class="fill-top"><div><b>${esc(f.station_name)}</b><span class="st-sub">${new Date(f.ts*1000).toLocaleString("de-AT",{weekday:"short",day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})} · ${FUEL_NAME[f.fuel]}</span></div>${verdict(f.vs_median)}</div>
+      <div class="fill-more">${f.liters.toFixed(2).replace(".", ",")} l × ${euro(f.price)} = <b style="color:var(--text)">${eur(f.total)}</b>${f.market_median ? " · Markt " + euro(f.market_median) : ""}<br>${fillDetails(f)}</div>
+      <button class="fill-del" data-id="${f.id}">Löschen</button></div>`).join("") : '<div class="empty">Noch keine Einträge.</div>';
+    $("#fillList").querySelectorAll(".fill-del").forEach(b => b.addEventListener("click", async () => {
+      if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Wirklich löschen? Nochmal tippen"; return; }
+      await fetch("api/fillups/" + b.dataset.id, {method:"DELETE"}); loadFill();
+    }));
+  }catch(e){ $("#fillList").innerHTML = '<div class="empty">Server nicht erreichbar.</div>'; }
+}
+$("#fillBtn").addEventListener("click", () => openFillForm(null));
+
 // ---------- Info ----------
 async function loadInfo(){
   try{
@@ -722,6 +876,7 @@ document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click
   if(S.view === "map") setTimeout(() => map.invalidateSize(), 50);
   if(S.view === "stats") loadStats();
   if(S.view === "info") loadInfo();
+  if(S.view === "fill") loadFill();
 }));
 
 const rad = $("#radius");

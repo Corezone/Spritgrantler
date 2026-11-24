@@ -11,6 +11,7 @@ Datenquelle ist die offizielle API des E-Control-Spritpreisrechners. Einen API-K
 - Diesel und Super 95 umschaltbar
 - Statistik mit Umschalter **Woche / Monat / Jahr**: Empfehlung „Jetzt tanken / Warte bis X Uhr“, Preis nach Uhrzeit, Heatmap Wochentag × Uhrzeit, günstigster Wochentag, Überblick mit Spanne und Ersparnis, letzte 48 Stunden, Verlauf (im Jahr wochenweise)
 - Detailansicht je Tankstelle mit Preisverlauf und Öffnungszeiten
+- **Tankbuch** pro Home-Assistant-Benutzer: „Ich war tanken“ speichert Liter und Preis und vergleicht mit dem Median zum Zeitpunkt, der günstigsten Tankstelle in 5 km und der besten Zeit an derselben Tankstelle am selben Tag. Dazu Gesamtersparnis, Ø bezahlter Preis und Ersparnis je Tankvorgang. Tankbuch-Einträge werden nicht automatisch gelöscht.
 - Daten werden nach 365 Tagen automatisch gelöscht (einstellbar)
 
 ## Installation als Home-Assistant-App
