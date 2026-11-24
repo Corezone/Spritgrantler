@@ -187,6 +187,14 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .total b{font:700 26px "Space Grotesk"}
 .result-big{font:700 34px/1.1 "Space Grotesk";margin:16px 0 6px}
 .result-big.good{color:#24507A}.result-big.bad{color:#8A4A1E}
+.recs{margin-bottom:14px}
+.rec{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--neutral)}
+.rec:last-child{border:0;padding-bottom:4px}
+.rec .ic{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent-ink)}
+.rec.good .ic{background:#E1ECF5;color:#24507A}
+.rec.warn .ic{background:var(--warm-soft);color:#8A4A1E}
+.rec b{display:block;font-weight:600;line-height:1.3}
+.rec p{margin:3px 0 0;color:var(--muted);font-size:14px}
 /* ---------- Info ---------- */
 .rows{padding:6px 18px}
 .row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--neutral)}
@@ -237,6 +245,8 @@ table.data th:first-child,table.data td:first-child{text-align:left}
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
 </svg>
 
@@ -292,6 +302,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
           <p id="heroText"></p>
           <div class="hours" id="heroHours"></div>
         </div>
+        <div class="card panel recs" id="recs"><h3>Empfehlungen</h3><div class="empty">Lade…</div></div>
         <div class="kpis" id="kpis"></div>
         <div class="grid2">
           <div class="card panel">
@@ -338,6 +349,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
         <div class="stats-head"><h2>Tankbuch</h2><span class="st-sub" id="fillUser"></span></div>
         <button class="btn primary big-cta" id="fillBtn"><svg class="i"><use href="#i-fuel"/></svg>Ich war tanken</button>
         <div class="kpis" id="fillKpis" style="margin-top:14px"></div>
+        <div class="card panel recs" id="fillRecs" style="margin-bottom:14px;display:none"></div>
         <div class="card panel" id="fillInsight"></div>
         <div class="card panel" style="margin-top:14px">
           <h3>Ersparnis je Tankvorgang</h3>
@@ -659,6 +671,7 @@ function centDiff(a, b){ if(a==null||b==null) return ["", ""]; const c = (a-b)*1
 
 async function loadStats(){
   try{
+    loadRecs("#recs");
     const days = S.days, pname = {7:"7 Tage", 30:"30 Tage", 365:"12 Monate"}[days];
     const [sum, st] = await Promise.all([api(`summary?fuel=${S.fuel}`), api(`stats?fuel=${S.fuel}&days=${days}`)]);
     const r = sum.recommendation, hero = $("#hero");
@@ -722,6 +735,24 @@ document.querySelectorAll("#periodSeg button").forEach(b => {
     loadStats();
   });
 });
+
+
+// ---------- Empfehlungen ----------
+const REC_ICON = {time:"i-clock", trend:"i-trend", station:"i-pin", personal:"i-user", potential:"i-spark"};
+async function loadRecs(target, kinds){
+  try{
+    const c = S.center || [48.2082,16.3738];
+    const d = await api(`recommendations?fuel=${S.fuel}&lat=${c[0]}&lon=${c[1]}&radius_km=${S.radius}`);
+    let recs = d.recommendations;
+    if(kinds) recs = recs.filter(r => kinds.includes(r.kind));
+    const box = $(target);
+    if(!recs.length){ if(kinds){ box.style.display = "none"; } else box.innerHTML = '<h3>Empfehlungen</h3><div class="empty">Noch zu wenig Daten.</div>'; return; }
+    box.style.display = "";
+    box.innerHTML = `<h3>${kinds ? "Tipp für dich" : "Empfehlungen"}</h3>` + recs.map(r => `<div class="rec ${r.level}">
+      <span class="ic"><svg class="i"><use href="#${REC_ICON[r.kind] || "i-info"}"/></svg></span>
+      <div><b>${esc(r.title)}</b><p>${esc(r.text)}</p></div></div>`).join("");
+  }catch(e){ if(!kinds) $(target).innerHTML = '<h3>Empfehlungen</h3><div class="empty">Nicht verfügbar.</div>'; }
+}
 
 // ---------- Tankbuch ----------
 const eur = v => (v<0?"−":"") + Math.abs(v).toFixed(2).replace(".", ",") + " €";
@@ -802,6 +833,7 @@ function showView(v){ document.querySelector(`#tabs button[data-v="${v}"]`).clic
 
 async function loadFill(){
   try{
+    loadRecs("#fillRecs", ["personal","time"]);
     const d = await api("fillups"), sm = d.summary;
     $("#fillUser").textContent = d.user || "";
     const sv = sm.saved_vs_median;

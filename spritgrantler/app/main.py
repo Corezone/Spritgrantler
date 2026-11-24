@@ -803,6 +803,133 @@ def api_fill_delete(fid: int, request: Request):
     return {"deleted": fid}
 
 
+# ---------------------------------------------------------------- Empfehlungen
+WD_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
+
+def de1(x: float) -> str:
+    return f"{x:.1f}".replace(".", ",")
+
+
+def de2(x: float) -> str:
+    return f"{x:.2f}".replace(".", ",")
+
+
+def when_label(dt: datetime, now: datetime) -> str:
+    days = (dt.date() - now.date()).days
+    day = "heute" if days == 0 else "morgen" if days == 1 else "übermorgen" if days == 2 else WD_NAMES[dt.weekday()]
+    return f"{day} {dt.hour}–{dt.hour + 1} Uhr"
+
+
+@app.get("/api/recommendations")
+def api_recommendations(request: Request, fuel: str = "DIE", lat: float | None = None, lon: float | None = None,
+                        radius_km: float = Query(5, ge=0.5, le=60)):
+    fuel = check_fuel(fuel)
+    con = db()
+    recs = []
+    hours, _, full30 = hourly_profile(con, fuel, 30)
+    _, heat, full90 = hourly_profile(con, fuel, 90)
+    now = datetime.now(TZ)
+
+    # 1) Nächstes günstiges Zeitfenster (Wochentag × Stunde ggü. Wochenschnitt)
+    if full90 >= 7:
+        cand = []
+        for k in range(1, 7 * 24):
+            dt = (now + timedelta(hours=k)).replace(minute=0, second=0, microsecond=0)
+            v = heat[dt.weekday()][dt.hour]
+            if v is not None:
+                cand.append((v, dt))
+        cur = heat[now.weekday()][now.hour]
+        if cand:
+            best48 = min((c for c in cand if c[1] <= now + timedelta(hours=48)), default=None, key=lambda c: c[0])
+            best7 = min(cand, key=lambda c: c[0])
+            if best48:
+                diff = (cur - best48[0]) if cur is not None else None
+                txt = f"Im Schnitt {de1(abs(best48[0]))} ct {'unter' if best48[0] < 0 else 'über'} dem Wochenschnitt"
+                if diff is not None and diff > 0.3:
+                    txt += f", {de1(diff)} ct/l günstiger als jetzt"
+                recs.append({"kind": "time", "level": "good", "title": f"Nächstes gutes Zeitfenster: {when_label(best48[1], now)}", "text": txt + "."})
+            if best7 and best7[1] > now + timedelta(hours=48) and best48 and best7[0] < best48[0] - 0.5:
+                recs.append({"kind": "time", "level": "info", "title": f"Diese Woche am günstigsten: {when_label(best7[1], now)}",
+                             "text": f"Noch {de1(best48[0] - best7[0])} ct/l weniger als das nächste Zeitfenster. Lohnt sich, wenn der Tank so lange reicht."})
+    elif full30 >= 3:
+        best = min((i for i, v in enumerate(hours) if v is not None), key=lambda i: hours[i])
+        recs.append({"kind": "time", "level": "good", "title": f"Am günstigsten meist {best}–{best + 1} Uhr",
+                     "text": f"Im Schnitt {de1(abs(hours[best]))} ct unter dem Tagesschnitt. Für Wochentags-Tipps brauche ich noch {max(0, 7 - full90)} Tage Daten."})
+    else:
+        recs.append({"kind": "time", "level": "info", "title": "Vormittags vor 12 Uhr tanken",
+                     "text": "Um 12 Uhr dürfen Tankstellen erhöhen. Eigene Auswertungen gibt es nach ein paar Tagen Sammeln."})
+
+    # 2) Preistendenz
+    days = {}
+    for r in con.execute("SELECT ts, median FROM rounds WHERE fuel=? AND ts>=?", (fuel, int(time.time()) - 8 * 86400)):
+        days.setdefault(local(r["ts"]).date(), []).append(r["median"])
+    dm = [statistics.median(v) for d, v in sorted(days.items()) if len(v) >= 12]
+    if len(dm) >= 4:
+        last3 = dm[-3:]
+        slope = (last3[-1] - last3[0]) * 100 / 2  # ct pro Tag
+        wk = sum(dm[:-1]) / len(dm[:-1])
+        vs = (dm[-1] - wk) * 100
+        if slope > 0.4:
+            recs.append({"kind": "trend", "level": "warn", "title": "Preise steigen",
+                         "text": f"Seit drei Tagen im Schnitt +{de1(slope)} ct pro Tag. Wenn du ohnehin tanken musst: lieber jetzt voll tanken."})
+        elif slope < -0.4:
+            recs.append({"kind": "trend", "level": "good", "title": "Preise fallen",
+                         "text": f"Seit drei Tagen im Schnitt {de1(slope)} ct pro Tag. Nur so viel tanken wie nötig und in ein paar Tagen voll machen."})
+        else:
+            recs.append({"kind": "trend", "level": "info", "title": "Preise stabil",
+                         "text": f"Heute {de1(abs(vs))} ct {'über' if vs > 0 else 'unter'} dem Schnitt der letzten Woche. Kein Grund zur Eile."})
+
+    # 3) Stammtankstellen im Umkreis: im Schnitt am weitesten unter dem Median
+    if lat is not None and lon is not None:
+        since = int(time.time()) - 30 * 86400
+        rounds = [(r["ts"], r["median"]) for r in con.execute("SELECT ts, median FROM rounds WHERE fuel=? AND ts>=? ORDER BY ts", (fuel, since))]
+        if rounds:
+            import bisect
+            rts = [r[0] for r in rounds]
+            agg: dict = {}
+            for r in con.execute("""SELECT p.station_id, p.price, p.first_seen, p.last_seen, s.name, s.lat, s.lon
+                                    FROM prices p JOIN stations s ON s.id=p.station_id WHERE p.fuel=? AND p.last_seen>=?""", (fuel, since)):
+                if haversine(lat, lon, r["lat"], r["lon"]) > radius_km:
+                    continue
+                i = min(len(rts) - 1, bisect.bisect_left(rts, (r["first_seen"] + r["last_seen"]) // 2))
+                dur = max(r["last_seen"] - r["first_seen"], CFG["interval_min"] * 60)
+                e = agg.setdefault(r["station_id"], {"name": r["name"], "w": 0.0, "dev": 0.0, "dist": haversine(lat, lon, r["lat"], r["lon"])})
+                e["w"] += dur
+                e["dev"] += (r["price"] - rounds[i][1]) * 100 * dur
+            ranked = sorted(((v["dev"] / v["w"], v) for v in agg.values() if v["w"] >= 48 * 3600), key=lambda x: x[0])[:3]
+            if ranked:
+                names = "; ".join(f"{v['name']} ({de1(abs(d))} ct {'unter' if d < 0 else 'über'} Ø, {de1(v['dist'])} km)" for d, v in ranked)
+                recs.append({"kind": "station", "level": "good", "title": f"Verlässlich günstig im Umkreis: {ranked[0][1]['name']}",
+                             "text": f"Über die letzten 30 Tage gerechnet: {names}.", "stations": [v["name"] for _, v in ranked]})
+
+    # 4) Persönlich aus dem Tankbuch
+    uid = request.headers.get("X-Remote-User-Id") or "lokal"
+    fills = con.execute("SELECT ts, liters FROM fillups WHERE user_id=? AND fuel=? ORDER BY ts DESC LIMIT 30", (uid, fuel)).fetchall()
+    valid_h = [i for i, v in enumerate(hours) if v is not None]
+    if len(fills) >= 3 and valid_h:
+        hrs = sorted(local(f["ts"]).hour for f in fills)
+        typ = hrs[len(hrs) // 2]
+        avg_l = sum(f["liters"] for f in fills) / len(fills)
+        best = min(valid_h, key=lambda i: hours[i])
+        if hours[typ] is not None and hours[typ] - hours[best] > 0.5:
+            eur = (hours[typ] - hours[best]) / 100 * avg_l
+            recs.append({"kind": "personal", "level": "warn", "title": f"Du tankst meist um {typ} Uhr",
+                         "text": f"Um {best} Uhr wäre es im Schnitt {de1(hours[typ] - hours[best])} ct/l günstiger. Bei deinen üblichen {round(avg_l)} l sind das {de2(eur)} € pro Tankfüllung."})
+        else:
+            recs.append({"kind": "personal", "level": "good", "title": "Deine Tankzeit passt",
+                         "text": f"Du tankst meist um {typ} Uhr, das gehört zu den günstigen Stunden."})
+
+    # 5) Potenzial allgemein
+    if valid_h and full30 >= 3:
+        spread = max(hours[i] for i in valid_h) - min(hours[i] for i in valid_h)
+        recs.append({"kind": "potential", "level": "info", "title": f"Bis zu {de1(spread)} ct/l Unterschied im Tagesverlauf",
+                     "text": f"Bei 50 l Tankfüllung sind das bis zu {de2(spread / 100 * 50)} € zwischen der teuersten und der günstigsten Stunde."})
+    con.commit()
+    con.close()
+    return {"fuel": fuel, "recommendations": recs, "days": full90}
+
+
 @app.get("/")
 def index():
     return FileResponse(BASE / "static" / "index.html", headers={"Cache-Control": "no-cache"})
