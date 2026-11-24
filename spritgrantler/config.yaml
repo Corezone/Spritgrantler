@@ -1,0 +1,33 @@
+name: Spritgrantler
+version: "1.0.0"
+slug: spritgrantler
+description: Grantelt über jeden Cent zu viel – Spritpreise in ganz Österreich live, mit Karte, Statistik und bester Tankzeit (E-Control)
+url: https://github.com/Corezone/spritgrantler
+arch:
+  - amd64
+  - aarch64
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:gas-station
+panel_title: Spritgrantler
+ports:
+  8099/tcp: null
+ports_description:
+  8099/tcp: Direkter Zugriff ohne Home Assistant (optional, z. B. für REST-Sensoren)
+options:
+  region: Österreich
+  interval_min: 30
+  retention_days: 365
+  request_delay_s: 2.5
+  center_lat: 48.2082
+  center_lon: 16.3738
+  demo: false
+schema:
+  region: str
+  interval_min: int(5,120)
+  retention_days: int(1,365)
+  request_delay_s: float(0.5,30)
+  center_lat: float
+  center_lon: float
+  demo: bool

@@ -1,1 +1,73 @@
 # Spritgrantler
+
+Grantelt über jeden Cent zu viel: Spritpreise für ganz Österreich live auf der Karte, mit Statistik und Empfehlung für die beste Tankzeit.
+Datenquelle ist die offizielle API des E-Control-Spritpreisrechners. Einen API-Key braucht man nicht.
+
+**Funktionen**
+- Karte mit Preis-Pins, einstellbarem Radius (1–50 km), „Mein Standort“ oder Mitte per Tippen bzw. Ziehen
+- Liste der günstigsten Tankstellen mit Navigation in Google Maps
+- Diesel und Super 95 umschaltbar
+- Statistik mit Umschalter **Woche / Monat / Jahr**: Empfehlung „Jetzt tanken / Warte bis X Uhr“, Preis nach Uhrzeit, Heatmap Wochentag × Uhrzeit, günstigster Wochentag, Überblick mit Spanne und Ersparnis, letzte 48 Stunden, Verlauf (im Jahr wochenweise)
+- Detailansicht je Tankstelle mit Preisverlauf und Öffnungszeiten
+- Daten werden nach 365 Tagen automatisch gelöscht (einstellbar)
+
+## Installation als Home-Assistant-App
+
+**Variante A, lokal:** Den Ordner `spritgrantler/` nach `/addons/spritgrantler` auf den HA-Host kopieren (Samba- oder SSH-App).
+Danach unter *Einstellungen → Apps → App-Store → ⋮ → Nach Updates suchen* erscheint „Spritgrantler“ unter *Lokale Apps*.
+
+**Variante B, GitHub:** Das Repo als `Corezone/spritgrantler` pushen und die URL unter *App-Store → ⋮ → Repositories* hinzufügen.
+
+Dann installieren, starten und „In Seitenleiste anzeigen“ aktivieren. Die Oberfläche läuft über Ingress, ein eigener Port ist nicht nötig.
+
+## Betrieb ohne Home Assistant (Docker-LXC)
+
+```bash
+docker compose up -d --build
+# → http://<IP>:8099
+```
+
+## Optionen
+
+| Option | Standard | Bedeutung |
+|---|---|---|
+| `region` | `Österreich` | `Österreich`, `Wien`, ein Bundesland oder Bezirkscodes wie `901,902` |
+| `interval_min` | `30` | Abfrageintervall. Für nur Wien gehen auch 15 |
+| `retention_days` | `365` | Löschfrist |
+| `request_delay_s` | `2.5` | Pause zwischen einzelnen API-Anfragen |
+| `center_lat` / `center_lon` | Stephansplatz | Startmitte der Karte |
+| `demo` | `false` | Beispieldaten, zum Ausprobieren ohne API |
+
+## Wie die Daten gesammelt werden
+
+- Die API liefert je Abfrage nur die **günstigsten** Tankstellen mit Preis. Spritgrantler fragt deshalb jeden Bezirk der Region einzeln ab. Für ganz Österreich sind das rund 230 Anfragen pro Runde, die mit Pause dazwischen etwa 10 Minuten dauern.
+- Zusätzlich holt die Karte beim Öffnen die nächstgelegenen Tankstellen live, höchstens alle 5 Minuten pro Ort.
+- Es werden nur **Preisänderungen** gespeichert. Ein gleichbleibender Preis verlängert nur den bestehenden Eintrag.
+- Falls die Bezirksliste nicht abrufbar ist, nutzt Spritgrantler ein Punkteraster rund um die Kartenmitte.
+- Nicht zu oft abfragen: In der Community wird berichtet, dass zu kurze Intervalle zu einer Sperre für einen Tag führen können.
+
+## Datenmenge
+
+Bei ganz Österreich, 30 Minuten Intervall und 365 Tagen Speicherung wächst die Datenbank auf etwa 300–500 MB. Nur Wien liegt bei etwa 60–120 MB im Jahr.
+
+## Home-Assistant-Sensor (optional)
+
+Mit freigegebenem Port 8099:
+
+```yaml
+rest:
+  - resource: http://<HA-IP>:8099/api/summary?fuel=DIE
+    scan_interval: 900
+    sensor:
+      - name: Diesel günstigster
+        value_template: "{{ value_json.min }}"
+        unit_of_measurement: "€/l"
+      - name: Diesel Empfehlung
+        value_template: "{{ value_json.recommendation.title }}"
+```
+
+Damit kann Node-RED z. B. eine Push-Nachricht schicken, wenn Diesel unter einen Wunschpreis fällt.
+
+## API-Endpunkte
+
+`/api/stations?lat=&lon=&radius_km=&fuel=DIE|SUP` · `/api/summary?fuel=` · `/api/stats?fuel=&days=` · `/api/station/{id}?fuel=` · `/api/info`
