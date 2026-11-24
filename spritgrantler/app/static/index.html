@@ -195,6 +195,9 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .rec.warn .ic{background:var(--warm-soft);color:#8A4A1E}
 .rec b{display:block;font-weight:600;line-height:1.3}
 .rec p{margin:3px 0 0;color:var(--muted);font-size:14px}
+.kpi-link{text-align:left;cursor:pointer;transition:.15s;font:inherit}
+.kpi-link:hover{border-color:var(--accent)}
+.kpi-link .d{line-height:1.35;margin-top:4px}
 /* ---------- Info ---------- */
 .rows{padding:6px 18px}
 .row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--neutral)}
@@ -685,10 +688,13 @@ async function loadStats(){
     const per = st.period || {};
     const [d3, c3] = centDiff(sum.median, per.median_avg);
     $("#kpis").innerHTML =
-      kpi("Günstigster jetzt", priceHTML(sum.min), sum.round_ts ? "Stand " + timeStr(sum.round_ts) : "") +
+      (sum.cheapest ? `<button class="card kpi kpi-link" id="kpiCheap"><label>Günstigster jetzt</label><div class="v">${priceHTML(sum.cheapest.price)}</div>
+        <div class="d"><b style="color:var(--text);font-weight:600">${esc(sum.cheapest.name)}</b><br>${esc(sum.cheapest.city || "")} · antippen für Karte</div></button>`
+        : kpi("Günstigster jetzt", priceHTML(sum.min), sum.round_ts ? "Stand " + timeStr(sum.round_ts) : "")) +
       kpi("Median jetzt", priceHTML(sum.median), d1 ? d1 + " ggü. gestern" : "", c1) +
       kpi("Ø Median " + pname, priceHTML(per.median_avg), d3 ? "jetzt " + d3 : "", c3) +
       kpi("Tiefstwert " + pname, priceHTML(per.min), "günstigster erfasster Preis");
+    if(sum.cheapest) $("#kpiCheap").addEventListener("click", () => showStationOnMap(sum.cheapest));
     $("#subHours").textContent = `Abweichung vom Tagesschnitt in Cent, Median der letzten ${pname}`;
     const WD = ["Mo","Di","Mi","Do","Fr","Sa","So"], WDL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
     barChart($("#cWeekday"), st.weekday, {now: (new Date().getDay()+6)%7, labels: WD, every: 1, tipLabel: i => WDL[i], label:"Preisabweichung nach Wochentag"});
@@ -828,6 +834,16 @@ function fillDetails(f){
   if(f.vs_local != null && f.local_min_name) parts.push(f.vs_local > 0.05 ? `Günstigste in 5 km: ${esc(f.local_min_name)} mit ${euro(f.local_min)}, dort wärst du ${eur(f.vs_local)} billiger gewesen.` : `Du warst bei der günstigsten Tankstelle in 5 km.`);
   if(f.vs_day != null) parts.push(f.vs_day > 0.05 ? `Beste Zeit an dieser Tankstelle an dem Tag: ${timeStr(f.day_best_ts)} Uhr mit ${euro(f.day_best)}, ${eur(f.vs_day)} weniger.` : `Zur besten Zeit des Tages getankt.`);
   return parts.join("<br>");
+}
+async function showStationOnMap(st){
+  showView("map");
+  $("#q").value = st.name; $("#search").classList.add("has");
+  setTimeout(async () => {
+    S.center = [st.lat, st.lon]; store.set("center", S.center);
+    circle.setLatLng(S.center); meMarker.setLatLng(S.center); fitRadius();
+    await loadStations();
+    if(S.stations.some(x => x.id === st.id)) openStation(st.id);
+  }, 80);
 }
 function showView(v){ document.querySelector(`#tabs button[data-v="${v}"]`).click(); }
 

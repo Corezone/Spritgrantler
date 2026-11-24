@@ -495,6 +495,13 @@ def api_summary(fuel: str = "DIE"):
     day_ago = con.execute("SELECT median FROM rounds WHERE fuel=? AND ts<=? ORDER BY ts DESC LIMIT 1",
                           (fuel, int(time.time()) - 86400)).fetchone()
     hours, _, full_days = hourly_profile(con, fuel, 30)
+    cheapest = None
+    if last:
+        c = con.execute("""SELECT s.id, s.name, s.address, s.postal, s.city, s.lat, s.lon, p.price FROM prices p
+                           JOIN stations s ON s.id=p.station_id WHERE p.fuel=? AND p.last_seen>=?
+                           ORDER BY p.price ASC, p.last_seen DESC LIMIT 1""", (fuel, last["ts"] - 60)).fetchone()
+        if c:
+            cheapest = dict(c)
     con.close()
     now = datetime.now(TZ)
     h = now.hour
@@ -506,7 +513,7 @@ def api_summary(fuel: str = "DIE"):
         "week_median": round(week["a"], 3) if week and week["a"] else None,
         "week_min": round(week["m"], 3) if week and week["m"] else None,
         "median_24h_ago": day_ago["median"] if day_ago else None,
-        "full_days": full_days, "hour": h, "recommendation": rec,
+        "full_days": full_days, "hour": h, "recommendation": rec, "cheapest": cheapest,
     }
 
 
