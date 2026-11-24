@@ -14,7 +14,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -587,16 +587,42 @@ _geo_cache: dict = {}
 _geo_last = [0.0]
 
 
+async def ha_states() -> list:
+    r = await client().get(f"{HA_API}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"})
+    r.raise_for_status()
+    return r.json()
+
+
+@app.get("/api/ha/me")
+async def api_ha_me(request: Request):
+    """Standort der Person, die gerade in Home Assistant angemeldet ist (über Ingress-Header)."""
+    uid = request.headers.get("X-Remote-User-Id")
+    uname = request.headers.get("X-Remote-User-Display-Name") or request.headers.get("X-Remote-User-Name")
+    if not uid or not SUP_TOKEN:
+        return {"found": False, "user": uname, "reason": "no_ingress"}
+    try:
+        for s in await ha_states():
+            a = s.get("attributes", {})
+            if s.get("entity_id", "").startswith("person.") and a.get("user_id") == uid:
+                has = a.get("latitude") is not None and a.get("longitude") is not None
+                return {"found": True, "has_location": has, "entity_id": s["entity_id"],
+                        "name": a.get("friendly_name") or uname, "state": s.get("state"),
+                        "lat": a.get("latitude"), "lon": a.get("longitude"), "source": a.get("source"),
+                        "accuracy": a.get("gps_accuracy"), "updated": s.get("last_updated")}
+        return {"found": False, "user": uname, "reason": "no_person"}
+    except Exception as e:  # noqa: BLE001
+        log.warning("Home-Assistant-API nicht erreichbar: %s", e)
+        return {"found": False, "user": uname, "reason": "api_error"}
+
+
 @app.get("/api/ha/locations")
 async def api_ha_locations():
     """Personen und Zuhause aus Home Assistant (nur als HA-App verfügbar)."""
     if not SUP_TOKEN:
         return {"available": False, "locations": []}
     try:
-        r = await client().get(f"{HA_API}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"})
-        r.raise_for_status()
         out = []
-        for s in r.json():
+        for s in await ha_states():
             eid, a = s.get("entity_id", ""), s.get("attributes", {})
             if a.get("latitude") is None or a.get("longitude") is None:
                 continue

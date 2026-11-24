@@ -736,19 +736,40 @@ async function openLocPicker(){
     <div class="loc-list" id="locList"><div class="empty">Lade Standorte aus Home Assistant…</div></div>`;
   $("#modal").classList.add("on");
   let items = "";
+  const me = S.me;
+  if(me && me.found && me.has_location){
+    items += `<button class="loc-item" data-me="1"><span class="ic" style="background:var(--accent);color:#fff"><svg class="i"><use href="#i-loc"/></svg></span>
+      <span><b>Mein Standort · ${esc(me.name)}</b><small>aus Home Assistant${me.updated ? ", " + ago(Date.parse(me.updated)/1000) : ""}${me.accuracy ? ", ±" + Math.round(me.accuracy) + " m" : ""}</small></span></button>`;
+  }
   try{
     const d = await api("ha/locations");
     S.haLocs = d.locations || [];
-    items = S.haLocs.map((l,i) => `<button class="loc-item" data-i="${i}"><span class="ic"><svg class="i"><use href="#${l.home ? "i-home" : "i-user"}"/></svg></span>
+    items += S.haLocs.filter(l => !(me && me.entity_id === l.id)).map((l) => `<button class="loc-item" data-id="${esc(l.id)}"><span class="ic"><svg class="i"><use href="#${l.home ? "i-home" : "i-user"}"/></svg></span>
       <span><b>${esc(l.name)}</b><small>${l.home ? "Zone Zuhause" : (l.state === "home" ? "gerade zuhause" : (l.state === "not_home" ? "unterwegs" : esc(l.state)))}</small></span></button>`).join("");
-    if(!d.available) items = `<div class="empty">Home Assistant ist nicht erreichbar. Das funktioniert nur, wenn Spritgrantler als App in Home Assistant läuft.</div>`;
+    if(!d.available) items += `<div class="empty">Home Assistant ist nicht erreichbar. Das funktioniert nur, wenn Spritgrantler als App in Home Assistant läuft.</div>`;
   }catch(e){ items = `<div class="empty">Home Assistant ist nicht erreichbar.</div>`; }
   items += `<button class="loc-item" data-gps="1"><span class="ic"><svg class="i"><use href="#i-loc"/></svg></span><span><b>GPS dieses Geräts</b><small>Klappt nur bei direktem HTTPS-Zugriff, nicht im Home-Assistant-Fenster</small></span></button>`;
   $("#locList").innerHTML = items;
   $("#locList").querySelectorAll(".loc-item").forEach(b => b.addEventListener("click", () => {
     if(b.dataset.gps){ useGps(); return; }
-    const l = S.haLocs[+b.dataset.i]; closeModal(); setPlace(l.name, [l.lat, l.lon]);
+    if(b.dataset.me){ closeModal(); refreshMe(true); return; }
+    const l = S.haLocs.find(x => x.id === b.dataset.id); closeModal(); setPlace(l.name, [l.lat, l.lon]);
   }));
+}
+async function refreshMe(force){
+  try{ S.me = await api("ha/me"); }catch(e){ S.me = null; }
+  const me = S.me;
+  if(me && me.found && me.has_location){
+    $("#q").value = ""; $("#search").classList.remove("has");
+    $("#q").placeholder = "Adresse suchen · du bist: " + me.name;
+    setCenter([me.lat, me.lon]);
+    return true;
+  }
+  if(force){
+    alertBox(me && me.found ? `Für ${me.name} liefert Home Assistant gerade keine Koordinaten. Prüf, ob der Person ein GPS-Tracker der Companion-App zugeordnet ist.`
+      : "Kein Home-Assistant-Benutzer mit Person gefunden. Öffne Spritgrantler über die Seitenleiste von Home Assistant.");
+  }
+  return false;
 }
 function useGps(){
   if(!navigator.geolocation){ alertBox("Dieser Browser kann den Standort nicht liefern."); return; }
@@ -806,9 +827,14 @@ let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() 
 // ---------- Start ----------
 (async () => {
   try{ S.cfg = await api("config"); }catch(e){ S.cfg = {center:[48.2082,16.3738]}; }
-  if(!S.center){
+  // Vorrang: angemeldete Person aus Home Assistant, dann gespeicherte Mitte, dann Zuhause
+  try{ S.me = await api("ha/me"); }catch(e){ S.me = null; }
+  if(S.me && S.me.found && S.me.has_location){
+    S.center = [S.me.lat, S.me.lon];
+    $("#q").placeholder = "Adresse suchen · du bist: " + S.me.name;
+  } else if(!S.center){
     S.center = S.cfg.center;
-    try{ const d = await api("ha/locations"); const h = (d.locations||[]).find(l => l.home); if(h){ S.center = [h.lat, h.lon]; $("#q").value = ""; } }catch(e){}
+    try{ const d = await api("ha/locations"); const h = (d.locations||[]).find(l => l.home); if(h) S.center = [h.lat, h.lon]; }catch(e){}
   }
   document.querySelectorAll("#fuelSeg button").forEach(b => b.classList.toggle("on", b.dataset.f === S.fuel));
   initMap(); loadStations(); refreshStatus();
