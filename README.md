@@ -11,11 +11,11 @@ Datenquelle ist die offizielle API des E-Control-Spritpreisrechners. Einen API-K
 - Standort automatisch von der Person des angemeldeten Home-Assistant-Benutzers (über Ingress, kein eigener Login nötig); alternativ Zuhause oder Tippen bzw. Ziehen auf der Karte
 - Liste der günstigsten Tankstellen mit Navigation in Google Maps
 - Diesel und Super 95 umschaltbar
-- Statistik mit Umschalter **Woche / Monat / Jahr**: Empfehlung „Jetzt tanken / Warte bis X Uhr“, Preis nach Uhrzeit, Heatmap Wochentag × Uhrzeit, günstigster Wochentag, Überblick mit Spanne und Ersparnis, letzte 48 Stunden, Verlauf (im Jahr wochenweise)
+- Statistik mit Umschalter **Woche / Monat / 3 Monate**: Empfehlung „Jetzt tanken / Warte bis X Uhr“, Preis nach Uhrzeit, Heatmap Wochentag × Uhrzeit, günstigster Wochentag, Überblick mit Spanne und Ersparnis, letzte 48 Stunden, Verlauf (bei 3 Monaten wochenweise)
 - Detailansicht je Tankstelle mit Preisverlauf und Öffnungszeiten
 - **Empfehlungen** aus den eigenen Daten: nächstes günstiges Zeitfenster (Wochentag × Uhrzeit), günstigster Termin der Woche, Preistendenz (steigend, fallend, stabil), verlässlich günstige Stammtankstellen im Umkreis, persönlicher Tipp aus dem Tankbuch und Sparpotenzial im Tagesverlauf
 - **Tankbuch** pro Home-Assistant-Benutzer: „Ich war tanken“ speichert Liter und Preis und vergleicht mit dem Median zum Zeitpunkt, der günstigsten Tankstelle in 5 km und der besten Zeit an derselben Tankstelle am selben Tag. Dazu Gesamtersparnis, Ø bezahlter Preis und Ersparnis je Tankvorgang. Tankbuch-Einträge werden nicht automatisch gelöscht.
-- Daten werden nach 365 Tagen automatisch gelöscht (einstellbar)
+- Daten werden nach 90 Tagen automatisch gelöscht (einstellbar), das reicht für alle Auswertungen
 
 ## Installation als Home-Assistant-App
 
@@ -39,7 +39,7 @@ docker compose up -d --build
 |---|---|---|
 | `region` | `Österreich` | `Österreich`, `Wien`, ein Bundesland oder Bezirkscodes wie `901,902` |
 | `interval_min` | `30` | Abfrageintervall. Für nur Wien gehen auch 15 |
-| `retention_days` | `365` | Löschfrist |
+| `retention_days` | `90` | Löschfrist. Alle Empfehlungen nutzen höchstens 90 Tage |
 | `request_delay_s` | `2.5` | Pause zwischen einzelnen API-Anfragen |
 | `center_lat` / `center_lon` | Stephansplatz | Startmitte der Karte |
 | `demo` | `false` | Beispieldaten, zum Ausprobieren ohne API |
@@ -54,7 +54,7 @@ docker compose up -d --build
 
 ## Datenmenge
 
-Bei ganz Österreich, 30 Minuten Intervall und 365 Tagen Speicherung wächst die Datenbank auf etwa 300–500 MB. Nur Wien liegt bei etwa 60–120 MB im Jahr.
+Bei ganz Österreich, 30 Minuten Intervall und 90 Tagen Speicherung bleibt die Datenbank bei etwa 80–130 MB. Nur Wien liegt bei etwa 15–30 MB.
 
 ## Sensoren in Home Assistant
 

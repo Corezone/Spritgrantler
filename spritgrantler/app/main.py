@@ -36,7 +36,7 @@ def load_config() -> dict:
     cfg = {
         "region": "Österreich",      # "Österreich", "Wien", Bundesland-Name oder Bezirkscodes "901,902"
         "interval_min": 30,          # Abfrageintervall
-        "retention_days": 365,       # Löschfrist
+        "retention_days": 90,        # Löschfrist
         "request_delay_s": 2.5,      # Pause zwischen API-Anfragen (Schutz vor Sperre)
         "center_lat": 48.2082,       # Standardmitte der Karte (Stephansplatz)
         "center_lon": 16.3738,

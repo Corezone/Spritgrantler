@@ -322,7 +322,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
     <section class="view" id="v-stats">
       <div class="scroll"><div class="wrap">
         <div class="stats-head"><h2>Statistik</h2>
-          <div class="seg small" id="periodSeg"><button data-d="7">Woche</button><button data-d="30" class="on">Monat</button><button data-d="365">Jahr</button></div>
+          <div class="seg small" id="periodSeg"><button data-d="7">Woche</button><button data-d="30" class="on">Monat</button><button data-d="90">3 Monate</button></div>
         </div>
         <div class="hero" id="hero">
           <div class="eyebrow" id="heroEyebrow">Beste Tankzeit</div>
@@ -433,7 +433,7 @@ const store = {
   get(k, d){ try{ const v = localStorage.getItem("sr_"+k); return v===null ? d : JSON.parse(v); }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem("sr_"+k, JSON.stringify(v)); }catch(e){} }
 };
-const S = { days: store.get("days",30), fuel: store.get("fuel","DIE"), radius: store.get("radius",5), center: store.get("center",null), cfg:null, stations:[], sel:null, view:"map" };
+const S = { days: [7,30,90].includes(store.get("days",30)) ? store.get("days",30) : 90, fuel: store.get("fuel","DIE"), radius: store.get("radius",5), center: store.get("center",null), cfg:null, stations:[], sel:null, view:"map" };
 const $ = s => document.querySelector(s);
 const api = (p) => fetch("api/" + p).then(r => { if(!r.ok) throw new Error(r.status); return r.json(); });
 const FUEL_NAME = {DIE:"Diesel", SUP:"Super 95"};
@@ -733,7 +733,7 @@ function centDiff(a, b){ if(a==null||b==null) return ["", ""]; const c = (a-b)*1
 async function loadStats(){
   try{
     loadRecs("#recs");
-    const days = S.days, pname = {7:"7 Tage", 30:"30 Tage", 365:"12 Monate"}[days];
+    const days = S.days, pname = {7:"7 Tage", 30:"30 Tage", 90:"3 Monate"}[days];
     const [sum, st] = await Promise.all([api(`summary?fuel=${S.fuel}`), api(`stats?fuel=${S.fuel}&days=${days}`)]);
     const r = sum.recommendation, hero = $("#hero");
     hero.className = "hero " + (r.level === "good" ? "" : r.level);

@@ -1,5 +1,5 @@
 name: Spritgrantler
-version: "1.7.1"
+version: "1.8.0"
 slug: spritgrantler
 description: Grantelt über jeden Cent zu viel – Spritpreise in ganz Österreich live, mit Karte, Statistik und bester Tankzeit (E-Control)
 url: https://github.com/Corezone/spritgrantler
@@ -20,7 +20,7 @@ ports_description:
 options:
   region: Österreich
   interval_min: 30
-  retention_days: 365
+  retention_days: 90
   request_delay_s: 2.5
   center_lat: 48.2082
   center_lon: 16.3738

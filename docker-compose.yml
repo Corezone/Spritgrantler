@@ -11,7 +11,7 @@ services:
     environment:
       REGION: "Österreich"      # oder "Wien", ein Bundesland, oder Bezirkscodes "901,902"
       INTERVAL_MIN: "30"
-      RETENTION_DAYS: "365"
+      RETENTION_DAYS: "90"
       REQUEST_DELAY_S: "2.5"
       CENTER_LAT: "48.2082"
       CENTER_LON: "16.3738"
