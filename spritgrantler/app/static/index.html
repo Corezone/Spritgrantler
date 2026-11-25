@@ -22,7 +22,25 @@
   --r-lg:24px; --r-md:18px; --r-sm:12px;
   --shadow:0 1px 2px rgba(21,25,30,.04), 0 8px 28px rgba(21,25,30,.08);
   --nav-h:72px;
+  --map-bg:#E9EDF1; --grid:#E8ECEF; --zero:#C5CDD4; --good-soft:#E1ECF5; --good-ink:#24507A; --bad-ink:#8A4A1E;
+  --tip-bg:#15191E; --tip-ink:#FFFFFF; --nav-bg:rgba(255,255,255,.92); --overlay:rgba(22,25,28,.32);
+  color-scheme:light;
 }
+html[data-theme="dark"]{
+  --bg:#0F1317; --surface:#181D23; --line:#2A3139; --text:#E6EAEE; --muted:#A0AAB4; --faint:#717B85;
+  --accent:#4E6B87; --accent-soft:#22303D; --accent-ink:#BBD0E4; --eye:#7FB7DC; --data:#5E9BD0;
+  --warm:#C98451; --warm-soft:#3A2A1E; --neutral:#232A31;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
+  --map-bg:#1A2026; --grid:#252C33; --zero:#3A434C; --good-soft:#1F3347; --good-ink:#9CC6EC; --bad-ink:#E3A97A;
+  --tip-bg:#E6EAEE; --tip-ink:#15191E; --nav-bg:rgba(24,29,35,.92); --overlay:rgba(0,0,0,.55);
+  color-scheme:dark;
+}
+html[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.88) contrast(.9) saturate(.3)!important}
+html[data-theme="dark"] .leaflet-control-attribution{background:rgba(24,29,35,.8)!important;color:var(--muted)}
+html[data-theme="dark"] .leaflet-control-attribution a{color:var(--accent-ink)}
+html[data-theme="dark"] .logo-mark{box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.radius-circle{stroke:var(--accent);fill:var(--data)}
+body,.card,.sheet,nav.tabs,.modal .box{transition:background-color .25s,border-color .25s,color .25s}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.45 Inter,system-ui,sans-serif}
 h1,h2,h3,.num{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.01em}
@@ -49,13 +67,13 @@ main{flex:1;min-height:0;position:relative}
 .scroll{overflow-y:auto;height:100%;padding:4px 16px calc(var(--nav-h) + 24px + env(safe-area-inset-bottom))}
 
 nav.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:1000;
-  display:flex;gap:4px;padding:6px;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  display:flex;gap:4px;padding:6px;background:var(--nav-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow)}
 nav.tabs button{display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;color:var(--muted);font-weight:600;font-size:14px;transition:.2s}
 nav.tabs button.on{background:var(--accent-soft);color:var(--accent-ink)}
 
 /* ---------- Karte ---------- */
-#map{position:absolute;inset:0;background:#E9EDF1}
+#map{position:absolute;inset:0;background:var(--map-bg)}
 .leaflet-container{font-family:Inter}
 .leaflet-tile-pane{filter:saturate(.35) brightness(1.04) contrast(.92)}
 .map-ctrl{position:absolute;top:10px;left:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
@@ -152,8 +170,8 @@ input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 .chart{position:relative;width:100%}
 .chart svg{display:block;width:100%;height:auto;overflow:visible}
 .axis text{font:11px Inter;fill:var(--faint)}
-.grid line{stroke:#E8ECEF}
-.tip{position:fixed;z-index:3000;pointer-events:none;background:var(--text);color:#fff;font-size:12px;padding:8px 10px;border-radius:10px;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;white-space:nowrap}
+.grid line{stroke:var(--grid)}
+.tip{position:fixed;z-index:3000;pointer-events:none;background:var(--tip-bg);color:var(--tip-ink);font-size:12px;padding:8px 10px;border-radius:10px;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;white-space:nowrap}
 .tip b{font-family:"Space Grotesk";font-size:14px}
 .note{font-size:12px;color:var(--muted);margin-top:12px;display:flex;gap:8px;align-items:flex-start}
 .note svg{width:16px;height:16px;margin-top:1px}
@@ -172,8 +190,8 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .fill-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .fill-top b{display:block}
 .verdict{font:700 15px "Space Grotesk";white-space:nowrap;padding:5px 11px;border-radius:999px}
-.verdict.good{background:#E1ECF5;color:#24507A}
-.verdict.bad{background:var(--warm-soft);color:#8A4A1E}
+.verdict.good{background:var(--good-soft);color:var(--good-ink)}
+.verdict.bad{background:var(--warm-soft);color:var(--bad-ink)}
 .verdict.neutral{background:var(--neutral);color:var(--muted)}
 .fill-more{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
 .fill-del{font-size:12px;color:var(--muted);font-weight:600;margin-top:6px}
@@ -186,13 +204,13 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .total{display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px;border-radius:16px;background:var(--bg)}
 .total b{font:700 26px "Space Grotesk"}
 .result-big{font:700 34px/1.1 "Space Grotesk";margin:16px 0 6px}
-.result-big.good{color:#24507A}.result-big.bad{color:#8A4A1E}
+.result-big.good{color:var(--good-ink)}.result-big.bad{color:var(--bad-ink)}
 .recs{margin-bottom:14px}
 .rec{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--neutral)}
 .rec:last-child{border:0;padding-bottom:4px}
 .rec .ic{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent-ink)}
-.rec.good .ic{background:#E1ECF5;color:#24507A}
-.rec.warn .ic{background:var(--warm-soft);color:#8A4A1E}
+.rec.good .ic{background:var(--good-soft);color:var(--good-ink)}
+.rec.warn .ic{background:var(--warm-soft);color:var(--bad-ink)}
 .rec b{display:block;font-weight:600;line-height:1.3}
 .rec p{margin:3px 0 0;color:var(--muted);font-size:14px}
 .kpi-link{text-align:left;cursor:pointer;transition:.15s;font:inherit}
@@ -206,7 +224,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .row b{font-weight:600;text-align:right}
 
 /* ---------- Detail ---------- */
-.modal{position:fixed;inset:0;z-index:2000;background:rgba(22,25,28,.32);display:none;align-items:flex-end;justify-content:center}
+.modal{position:fixed;inset:0;z-index:2000;background:var(--overlay);display:none;align-items:flex-end;justify-content:center}
 .modal.on{display:flex;animation:fade .2s}
 @keyframes fade{from{opacity:0}}
 .modal .box{width:100%;max-width:560px;max-height:90dvh;overflow:auto;background:var(--surface);border-radius:28px 28px 0 0;padding:20px 20px calc(24px + env(safe-area-inset-bottom));animation:up .3s cubic-bezier(.2,.8,.2,1)}
@@ -369,6 +387,10 @@ table.data th:first-child,table.data td:first-child{text-align:left}
     <!-- Info -->
     <section class="view" id="v-info">
       <div class="scroll"><div class="wrap" style="max-width:640px">
+        <div class="card panel" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div><h3>Darstellung</h3><div class="st-sub">Automatisch folgt der Einstellung deines Geräts</div></div>
+          <div class="seg small" id="themeSeg"><button data-t="auto">Automatisch</button><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
+        </div>
         <div class="card rows" id="infoRows"></div>
         <div class="note"><svg class="i"><use href="#i-info"/></svg><span>Spritgrantler grantelt über jeden Cent zu viel. Daten: E-Control-Spritpreisrechner. Tankstellen dürfen in Österreich nur einmal täglich um 12 Uhr erhöhen, senken jederzeit.</span></div>
       </div></div>
@@ -399,6 +421,24 @@ const $ = s => document.querySelector(s);
 const api = (p) => fetch("api/" + p).then(r => { if(!r.ok) throw new Error(r.status); return r.json(); });
 const FUEL_NAME = {DIE:"Diesel", SUP:"Super 95"};
 
+
+// ---------- Darstellung (hell/dunkel) ----------
+function cssHex(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim().replace("#",""); }
+const darkMQ = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+function applyTheme(){
+  const pref = store.get("theme", "auto");
+  const dark = pref === "dark" || (pref === "auto" && darkMQ && darkMQ.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  const m = document.querySelector('meta[name="theme-color"]'); if(m) m.content = dark ? "#0F1317" : "#F2F4F6";
+}
+function setTheme(t){
+  store.set("theme", t); applyTheme();
+  document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  if(S.view === "stats") loadStats(); if(S.view === "fill") loadFill();
+}
+if(darkMQ) darkMQ.addEventListener("change", () => { applyTheme(); if(S.view === "stats") loadStats(); if(S.view === "fill") loadFill(); });
+applyTheme();
+
 // ---------- Formatierung ----------
 function priceHTML(p){
   if(p==null) return "–";
@@ -428,7 +468,7 @@ function initMap(){
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
   }).addTo(map);
   markers.addTo(map);
-  circle = L.circle(S.center, {radius:S.radius*1000, color:"#3E5468", weight:1.5, fillColor:"#3A76A8", fillOpacity:.06, dashArray:"6 6"}).addTo(map);
+  circle = L.circle(S.center, {radius:S.radius*1000, className:"radius-circle", weight:1.5, fillOpacity:.07, dashArray:"6 6"}).addTo(map);
   meMarker = L.marker(S.center, {icon: L.divIcon({className:"", html:'<div class="me"></div>', iconSize:[0,0]}), draggable:true, zIndexOffset:1000}).addTo(map);
   meMarker.on("dragend", e => setCenter([e.target.getLatLng().lat, e.target.getLatLng().lng]));
   map.on("click", e => setCenter([e.latlng.lat, e.latlng.lng]));
@@ -519,7 +559,7 @@ async function openStation(id){
     const pts = [];
     const since = Date.now()/1000 - 7*86400; let prevEnd = null;
     d.history.filter(h => h.last_seen >= since).forEach(h => { pts.push({t:Math.max(h.first_seen, since), v:h.price, brk: prevEnd!==null && h.first_seen - prevEnd > 3600}); pts.push({t:h.last_seen, v:h.price}); prevEnd = h.last_seen; });
-    lineChart($("#cStation"), [{pts, color:"#3A76A8", name:"Preis", step:true}], {h:180});
+    lineChart($("#cStation"), [{pts, color:"var(--data)", name:"Preis", step:true}], {h:180});
   }catch(e){ $("#cStation").innerHTML = '<div class="empty">Kein Verlauf verfügbar.</div>'; }
 }
 function closeModal(){ $("#modal").classList.remove("on"); }
@@ -559,7 +599,7 @@ function barChart(box, vals, opt){
   const bw = (W - m.l - m.r) / N;
   const g = el("g", {class:"grid"}, svg), ax = el("g", {class:"axis"}, svg);
   niceTicks(-mx, mx, 4).forEach(t => {
-    el("line", {x1:m.l, x2:W-m.r, y1:y(t), y2:y(t), stroke: t===0 ? "#C5CDD4" : "#E8ECEF"}, g);
+    el("line", {x1:m.l, x2:W-m.r, y1:y(t), y2:y(t), style: "stroke:" + (t===0 ? "var(--zero)" : "var(--grid)")}, g);
     const tx = el("text", {x:m.l-6, y:y(t)+4, "text-anchor":"end"}, ax); tx.textContent = (t>0?"+":"") + t.toString().replace(".", ",");
   });
   vals.forEach((v,i) => {
@@ -568,16 +608,16 @@ function barChart(box, vals, opt){
     if(v == null) return;
     const y0 = y(0), y1 = y(v), top = Math.min(y0,y1), h = Math.max(1.5, Math.abs(y1-y0));
     const good = opt.goodPositive ? v >= 0 : v <= 0;
-    const col = good ? "#3A76A8" : "#B0652E";
+    const col = good ? "var(--data)" : "var(--warm)";
     const gap = N > 12 ? 2 : Math.min(18, bw*.3);
-    const r = el("rect", {x:x+gap/2, y:top, width:bw-gap, height:h, rx:4, fill:col, opacity: opt.now===i ? 1 : .82}, svg);
-    if(opt.now === i){ el("rect", {x:x-.5, y:m.t-6, width:bw+1, height:H-m.t-m.b+6, rx:6, fill:"none", stroke:"#15191E", "stroke-width":1.5, "stroke-dasharray":"3 3"}, svg); }
+    const r = el("rect", {x:x+gap/2, y:top, width:bw-gap, height:h, rx:4, style:"fill:" + col, opacity: opt.now===i ? 1 : .82}, svg);
+    if(opt.now === i){ el("rect", {x:x-.5, y:m.t-6, width:bw+1, height:H-m.t-m.b+6, rx:6, fill:"none", style:"stroke:var(--text)", "stroke-width":1.5, "stroke-dasharray":"3 3"}, svg); }
     const hit = el("rect", {x, y:m.t, width:bw, height:H-m.t-m.b, fill:"transparent"}, svg);
     const html = opt.tipHtml ? opt.tipHtml(i, v) : `${opt.tipLabel ? opt.tipLabel(i) : i + ":00–" + i + ":59 Uhr"}<br><b>${v>0?"+":""}${v.toFixed(1).replace(".", ",")} ct</b> ${v<=0?"unter":"über"} Tagesschnitt`;
     hit.addEventListener("pointermove", e => showTip(html, e.clientX, e.clientY));
     hit.addEventListener("pointerleave", hideTip);
   });
-  if(opt.now != null){ const tx = el("text", {x:m.l + opt.now*bw + bw/2, y:m.t-9, "text-anchor":"middle", style:"font:600 11px Inter;fill:#15191E"}, svg); tx.textContent = "jetzt"; }
+  if(opt.now != null){ const tx = el("text", {x:m.l + opt.now*bw + bw/2, y:m.t-9, "text-anchor":"middle", style:"font:600 11px Inter;fill:var(--text)"}, svg); tx.textContent = "jetzt"; }
 }
 
 function heatmap(box, heat){
@@ -588,7 +628,8 @@ function heatmap(box, heat){
   const svg = el("svg", {viewBox:`0 0 ${W} ${H}`, role:"img", "aria-label":"Heatmap Wochentag und Uhrzeit"}, box);
   const cellW = (W - m.l) / 24, mx = Math.max(...flat.map(Math.abs)) || 1;
   const mix = (a,b,t) => { const pa=a.match(/\w\w/g).map(h=>parseInt(h,16)), pb=b.match(/\w\w/g).map(h=>parseInt(h,16)); return "rgb(" + pa.map((c,i)=>Math.round(c+(pb[i]-c)*t)).join(",") + ")"; };
-  const color = v => v == null ? "#F2F4F6" : v <= 0 ? mix("ECEFF2","3A76A8", Math.min(1, -v/mx)) : mix("ECEFF2","B0652E", Math.min(1, v/mx));
+  const N0 = cssHex("--neutral"), CB = cssHex("--data"), CW = cssHex("--warm");
+  const color = v => v == null ? "#" + cssHex("--bg") : v <= 0 ? mix(N0, CB, Math.min(1, -v/mx)) : mix(N0, CW, Math.min(1, v/mx));
   const days = ["Mo","Di","Mi","Do","Fr","Sa","So"], ax = el("g", {class:"axis"}, svg);
   heat.forEach((row, d) => {
     const t = el("text", {x:0, y:m.t + d*ch + ch/2 + 4}, ax); t.textContent = days[d];
@@ -629,8 +670,8 @@ function lineChart(box, series, opt={}){
   if(opt.noonMarks){
     const d = new Date(t0*1000); d.setHours(12,0,0,0);
     for(let t = d.getTime()/1000; t <= t1; t += 86400){ if(t < t0) continue;
-      el("line", {x1:x(t), x2:x(t), y1:m.t, y2:H-m.b, stroke:"#8A949E", "stroke-width":1, "stroke-dasharray":"2 4", opacity:.8}, svg);
-      const tx = el("text", {x:x(t)+4, y:m.t+10, style:"font:600 10px Inter;fill:#56606A"}, svg); tx.textContent = "12 Uhr";
+      el("line", {x1:x(t), x2:x(t), y1:m.t, y2:H-m.b, style:"stroke:var(--faint)", "stroke-width":1, "stroke-dasharray":"2 4", opacity:.8}, svg);
+      const tx = el("text", {x:x(t)+4, y:m.t+10, style:"font:600 10px Inter;fill:var(--muted)"}, svg); tx.textContent = "12 Uhr";
     }
   }
   series.forEach(s => {
@@ -643,15 +684,15 @@ function lineChart(box, series, opt={}){
     if(s.area){
       const grad = "g" + Math.random().toString(36).slice(2,7);
       const defs = el("defs", {}, svg), lg = el("linearGradient", {id:grad, x1:0, x2:0, y1:0, y2:1}, defs);
-      el("stop", {offset:0, "stop-color":"#3A76A8", "stop-opacity":.18}, lg); el("stop", {offset:1, "stop-color":"#3A76A8", "stop-opacity":0}, lg);
+      el("stop", {offset:0, style:"stop-color:var(--data);stop-opacity:.2"}, lg); el("stop", {offset:1, style:"stop-color:var(--data);stop-opacity:0"}, lg);
       el("path", {d: d + `L${x(s.pts.at(-1).t)},${H-m.b}L${x(s.pts[0].t)},${H-m.b}Z`, fill:`url(#${grad})`}, svg);
     }
-    el("path", {d, fill:"none", stroke:s.color, "stroke-width":2, "stroke-linejoin":"round", "stroke-linecap":"round", "stroke-dasharray": s.dash ? "5 4" : ""}, svg);
-    if(opt.labels){ const last = s.pts.at(-1); const tx = el("text", {x:x(last.t)+8, y:y(last.v)+4, style:"font:600 11px Inter;fill:#56606A"}, svg); tx.textContent = s.name; }
+    el("path", {d, fill:"none", style:"stroke:" + s.color, "stroke-width":2, "stroke-linejoin":"round", "stroke-linecap":"round", "stroke-dasharray": s.dash ? "5 4" : ""}, svg);
+    if(opt.labels){ const last = s.pts.at(-1); const tx = el("text", {x:x(last.t)+8, y:y(last.v)+4, style:"font:600 11px Inter;fill:var(--muted)"}, svg); tx.textContent = s.name; }
   });
   // Fadenkreuz
-  const cross = el("line", {y1:m.t, y2:H-m.b, stroke:"#15191E", "stroke-width":1, opacity:0}, svg);
-  const dots = series.map(s => el("circle", {r:4.5, fill:"#fff", stroke:s.color, "stroke-width":2, opacity:0}, svg));
+  const cross = el("line", {y1:m.t, y2:H-m.b, style:"stroke:var(--text)", "stroke-width":1, opacity:0}, svg);
+  const dots = series.map(s => el("circle", {r:4.5, style:"fill:var(--surface);stroke:" + s.color, "stroke-width":2, opacity:0}, svg));
   const hit = el("rect", {x:m.l, y:m.t, width:W-m.l-m.r, height:H-m.t-m.b, fill:"transparent"}, svg);
   hit.addEventListener("pointermove", e => {
     const r = svg.getBoundingClientRect(), tx = t0 + (t1-t0) * ((e.clientX - r.left) * W / r.width - m.l) / (W-m.l-m.r);
@@ -715,13 +756,13 @@ async function loadStats(){
     $("#tHours").innerHTML = "";
     heatmap($("#cHeat"), st.heat);
     lineChart($("#cIntra"), [
-      {name:"Günstigster", color:"#3A76A8", pts: st.intraday.map(p=>({t:p.ts, v:p.min})), area:true},
-      {name:"Median", color:"#B0652E", dash:true, pts: st.intraday.map(p=>({t:p.ts, v:p.median}))}
+      {name:"Günstigster", color:"var(--data)", pts: st.intraday.map(p=>({t:p.ts, v:p.min})), area:true},
+      {name:"Median", color:"var(--warm)", dash:true, pts: st.intraday.map(p=>({t:p.ts, v:p.median}))}
     ], {labels:true, noonMarks:true, label:"Preise der letzten 48 Stunden"});
     const dayTs = d => new Date(d + "T12:00:00").getTime()/1000;
     lineChart($("#cTrend"), [
-      {name: st.weekly ? "Wochentief" : "Tagestief", color:"#3A76A8", pts: st.trend.map(p=>({t:dayTs(p.day), v:p.min})), area:true},
-      {name:"Median", color:"#B0652E", dash:true, pts: st.trend.map(p=>({t:dayTs(p.day), v:p.median}))}
+      {name: st.weekly ? "Wochentief" : "Tagestief", color:"var(--data)", pts: st.trend.map(p=>({t:dayTs(p.day), v:p.min})), area:true},
+      {name:"Median", color:"var(--warm)", dash:true, pts: st.trend.map(p=>({t:dayTs(p.day), v:p.median}))}
     ], {labels:true, daily:true, weekly: st.weekly, label:"Preisverlauf"});
     S.hours = st.hours;
   }catch(e){ $("#heroTitle").textContent = "Keine Daten"; $("#heroText").textContent = "Server nicht erreichbar."; }
@@ -865,7 +906,7 @@ async function loadFill(){
     $("#fillUser").textContent = d.user || "";
     const sv = sm.saved_vs_median;
     $("#fillKpis").innerHTML =
-      kpi("Gespart ggü. Ø", sm.count ? `<span style="color:${sv>=0?"#24507A":"#8A4A1E"}">${eur(sv)}</span>` : "–", sm.count ? (sv>=0 ? "unter dem Durchschnitt" : "über dem Durchschnitt") : "noch keine Einträge") +
+      kpi("Gespart ggü. Ø", sm.count ? `<span style="color:${sv>=0?"var(--good-ink)":"var(--bad-ink)"}">${eur(sv)}</span>` : "–", sm.count ? (sv>=0 ? "unter dem Durchschnitt" : "über dem Durchschnitt") : "noch keine Einträge") +
       kpi("Getankt", sm.count ? sm.liters.toFixed(0) + " l" : "–", sm.count + (sm.count === 1 ? " Tankvorgang" : " Tankvorgänge")) +
       kpi("Ausgegeben", sm.count ? eur(sm.spent) : "–", "") +
       kpi("Ø bezahlt", priceHTML(sm.avg_price), sm.avg_market ? "Markt Ø " + euro(sm.avg_market) : "");
@@ -890,6 +931,8 @@ async function loadFill(){
   }catch(e){ $("#fillList").innerHTML = '<div class="empty">Server nicht erreichbar.</div>'; }
 }
 $("#fillBtn").addEventListener("click", () => openFillForm(null));
+
+document.querySelectorAll("#themeSeg button").forEach(b => { b.classList.toggle("on", b.dataset.t === store.get("theme","auto")); b.addEventListener("click", () => setTheme(b.dataset.t)); });
 
 // ---------- Info ----------
 async function loadInfo(){
