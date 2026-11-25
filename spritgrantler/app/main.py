@@ -1050,6 +1050,40 @@ def prune_tiles():
                 f.unlink(missing_ok=True)
 
 
+# ---------------------------------------------------------------- Daten löschen
+class ResetIn(BaseModel):
+    prices: bool = False
+    fillups: bool = False
+    tiles: bool = False
+
+
+@app.post("/api/reset")
+def api_reset(body: ResetIn, request: Request):
+    """Löscht gezielt Daten: Preise/Statistik (alle), eigenes Tankbuch, Kartenkacheln."""
+    import shutil
+    uid, _ = who(request)
+    done = []
+    con = db()
+    if body.prices:
+        for tbl in ("prices", "rounds", "stations"):
+            con.execute(f"DELETE FROM {tbl}")
+        _live_cache.clear()
+        STATE["last_round"] = None
+        done.append("prices")
+    if body.fillups:
+        con.execute("DELETE FROM fillups WHERE user_id=?", (uid,))
+        done.append("fillups")
+    con.commit()
+    if body.prices or body.fillups:
+        con.execute("VACUUM")
+    con.close()
+    if body.tiles and TILE_DIR.exists():
+        shutil.rmtree(TILE_DIR, ignore_errors=True)
+        done.append("tiles")
+    log.info("Daten gelöscht: %s", ", ".join(done) or "nichts")
+    return {"deleted": done}
+
+
 @app.get("/")
 def index():
     return FileResponse(BASE / "static" / "index.html", headers={"Cache-Control": "no-cache"})

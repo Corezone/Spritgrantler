@@ -5,6 +5,7 @@ Datenquelle ist die offizielle API des E-Control-Spritpreisrechners. Einen API-K
 
 **Funktionen**
 - Karte (OpenStreetMap) mit Preis-Pins und einstellbarem Radius (1–50 km)
+- Daten löschen im Info-Tab: Preise und Statistik, eigenes Tankbuch, Kartenkacheln (gezielt auswählbar)
 - Darkmode: automatisch nach Geräteeinstellung oder fest hell/dunkel (Info-Tab)
 - Adresssuche (OpenStreetMap, auf Österreich beschränkt)
 - Standort automatisch von der Person des angemeldeten Home-Assistant-Benutzers (über Ingress, kein eigener Login nötig); alternativ Zuhause, andere Personen oder Tippen bzw. Ziehen auf der Karte

@@ -216,6 +216,13 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .kpi-link{text-align:left;cursor:pointer;transition:.15s;font:inherit}
 .kpi-link:hover{border-color:var(--accent)}
 .kpi-link .d{line-height:1.35;margin-top:4px}
+.checks{display:grid;gap:10px;margin:14px 0 4px}
+.checks label{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:16px;cursor:pointer}
+.checks input{width:22px;height:22px;margin:1px 0 0;accent-color:var(--warm);flex:none}
+.checks b{display:block;font-weight:600}
+.checks small{color:var(--muted);font-size:13px}
+.btn.danger{background:var(--warm-soft);color:var(--bad-ink)}
+.btn.danger.armed{background:var(--warm);color:#fff}
 /* ---------- Info ---------- */
 .rows{padding:6px 18px}
 .row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--neutral)}
@@ -392,6 +399,16 @@ table.data th:first-child,table.data td:first-child{text-align:left}
           <div class="seg small" id="themeSeg"><button data-t="auto">Automatisch</button><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
         </div>
         <div class="card rows" id="infoRows"></div>
+        <div class="card panel" style="margin-top:14px">
+          <h3>Daten löschen</h3>
+          <div class="sub">Wähle aus, was weg soll. Das lässt sich nicht rückgängig machen.</div>
+          <div class="checks">
+            <label><input type="checkbox" id="rsPrices"><span><b>Preise und Statistik</b><small>Alle gesammelten Preise, Tankstellen und Auswertungen. Das Sammeln beginnt danach neu.</small></span></label>
+            <label><input type="checkbox" id="rsFill"><span><b>Mein Tankbuch</b><small>Nur deine eigenen Einträge, andere Benutzer behalten ihre.</small></span></label>
+            <label><input type="checkbox" id="rsTiles"><span><b>Kartenkacheln</b><small>Zwischenspeicher der Karte. Wird bei Bedarf neu geladen.</small></span></label>
+          </div>
+          <button class="btn danger" id="rsBtn">Ausgewählte Daten löschen</button>
+        </div>
         <div class="note"><svg class="i"><use href="#i-info"/></svg><span>Spritgrantler grantelt über jeden Cent zu viel. Daten: E-Control-Spritpreisrechner. Tankstellen dürfen in Österreich nur einmal täglich um 12 Uhr erhöhen, senken jederzeit.</span></div>
       </div></div>
     </section>
@@ -933,6 +950,26 @@ async function loadFill(){
 $("#fillBtn").addEventListener("click", () => openFillForm(null));
 
 document.querySelectorAll("#themeSeg button").forEach(b => { b.classList.toggle("on", b.dataset.t === store.get("theme","auto")); b.addEventListener("click", () => setTheme(b.dataset.t)); });
+
+
+(() => {
+  const b = $("#rsBtn");
+  const reset = () => { b.classList.remove("armed"); b.textContent = "Ausgewählte Daten löschen"; };
+  ["#rsPrices","#rsFill","#rsTiles"].forEach(id => $(id).addEventListener("change", reset));
+  b.addEventListener("click", async () => {
+    const body = {prices: $("#rsPrices").checked, fillups: $("#rsFill").checked, tiles: $("#rsTiles").checked};
+    if(!body.prices && !body.fillups && !body.tiles){ b.textContent = "Erst etwas auswählen"; setTimeout(reset, 1800); return; }
+    if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Wirklich löschen? Nochmal tippen"; return; }
+    b.disabled = true; b.textContent = "Lösche …";
+    try{
+      const r = await fetch("api/reset", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+      if(!r.ok) throw new Error(r.status);
+      ["#rsPrices","#rsFill","#rsTiles"].forEach(id => $(id).checked = false);
+      b.textContent = "Gelöscht"; loadInfo(); loadStations();
+    }catch(e){ b.textContent = "Fehler beim Löschen"; }
+    setTimeout(() => { b.disabled = false; reset(); }, 2000);
+  });
+})();
 
 // ---------- Info ----------
 async function loadInfo(){
