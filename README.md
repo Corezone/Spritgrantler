@@ -8,7 +8,7 @@ Datenquelle ist die offizielle API des E-Control-Spritpreisrechners. Einen API-K
 - Daten löschen im Info-Tab: Preise und Statistik, eigenes Tankbuch, Kartenkacheln (gezielt auswählbar)
 - Darkmode: automatisch nach Geräteeinstellung oder fest hell/dunkel (Info-Tab)
 - Adresssuche (OpenStreetMap, auf Österreich beschränkt)
-- Standort automatisch von der Person des angemeldeten Home-Assistant-Benutzers (über Ingress, kein eigener Login nötig); alternativ Zuhause, andere Personen oder Tippen bzw. Ziehen auf der Karte
+- Standort automatisch von der Person des angemeldeten Home-Assistant-Benutzers (über Ingress, kein eigener Login nötig); alternativ Zuhause oder Tippen bzw. Ziehen auf der Karte
 - Liste der günstigsten Tankstellen mit Navigation in Google Maps
 - Diesel und Super 95 umschaltbar
 - Statistik mit Umschalter **Woche / Monat / Jahr**: Empfehlung „Jetzt tanken / Warte bis X Uhr“, Preis nach Uhrzeit, Heatmap Wochentag × Uhrzeit, günstigster Wochentag, Überblick mit Spanne und Ersparnis, letzte 48 Stunden, Verlauf (im Jahr wochenweise)

@@ -651,7 +651,7 @@ async def api_ha_me(request: Request):
 
 @app.get("/api/ha/locations")
 async def api_ha_locations():
-    """Personen und Zuhause aus Home Assistant (nur als HA-App verfügbar)."""
+    """Zone Zuhause aus Home Assistant (nur als HA-App verfügbar). Andere Personen werden bewusst nicht angezeigt."""
     if not SUP_TOKEN:
         return {"available": False, "locations": []}
     try:
@@ -660,7 +660,7 @@ async def api_ha_locations():
             eid, a = s.get("entity_id", ""), s.get("attributes", {})
             if a.get("latitude") is None or a.get("longitude") is None:
                 continue
-            if eid.startswith("person.") or eid == "zone.home":
+            if eid == "zone.home":
                 name = "Zuhause" if eid == "zone.home" else a.get("friendly_name", eid)
                 out.append({"id": eid, "name": name, "lat": a["latitude"], "lon": a["longitude"],
                             "state": s.get("state"), "home": eid == "zone.home"})
