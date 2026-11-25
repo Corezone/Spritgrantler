@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 log = logging.getLogger("spritgrantler")
@@ -263,6 +263,7 @@ async def collector_loop():
             await publish_ha_sensors()
             if start - last_clean > 6 * 3600:
                 cleanup()
+                prune_tiles()
                 last_clean = start
         except Exception as e:  # noqa: BLE001
             STATE["last_error"] = str(e)
@@ -993,6 +994,42 @@ async def publish_ha_sensors():
         con.close()
     except Exception as e:  # noqa: BLE001
         log.warning("Sensoren nach Home Assistant fehlgeschlagen: %s", e)
+
+
+# ---------------------------------------------------------------- Kartenkacheln (OSM-Proxy mit Cache)
+TILE_DIR = DATA_DIR / "tiles"
+TILE_MAX_AGE = 30 * 86400
+TILE_UA = "Spritgrantler/1.5 (Home-Assistant-App; https://github.com/Corezone/spritgrantler)"
+
+
+@app.get("/tiles/{z}/{x}/{y}.png")
+async def tile(z: int, x: int, y: int):
+    """Holt OSM-Kacheln serverseitig mit eigener Kennung und speichert sie 30 Tage (OSM Tile Usage Policy)."""
+    if not (0 <= z <= 19 and 0 <= x < 2 ** z and 0 <= y < 2 ** z):
+        raise HTTPException(404)
+    path = TILE_DIR / str(z) / str(x) / f"{y}.png"
+    fresh = path.exists() and time.time() - path.stat().st_mtime < TILE_MAX_AGE
+    if not fresh:
+        try:
+            r = await client().get(f"https://tile.openstreetmap.org/{z}/{x}/{y}.png", headers={"User-Agent": TILE_UA})
+            r.raise_for_status()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_bytes(r.content)
+            tmp.replace(path)
+        except Exception as e:  # noqa: BLE001
+            if not path.exists():
+                log.warning("Kachel %s/%s/%s nicht ladbar: %s", z, x, y, e)
+                raise HTTPException(502, "Kachel nicht verfügbar")
+    return Response(path.read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=604800"})
+
+
+def prune_tiles():
+    cut = time.time() - 2 * TILE_MAX_AGE
+    if TILE_DIR.exists():
+        for f in TILE_DIR.rglob("*.png"):
+            if f.stat().st_mtime < cut:
+                f.unlink(missing_ok=True)
 
 
 @app.get("/")
