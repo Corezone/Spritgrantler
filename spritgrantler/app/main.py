@@ -361,6 +361,22 @@ def demo_tick():
     STATE["last_round"] = int(time.time())
 
 
+def purge_demo():
+    """Entfernt Demo-Daten, sobald der Demo-Modus ausgeschaltet ist (Tankbuch bleibt erhalten)."""
+    con = db()
+    n = con.execute("SELECT COUNT(*) FROM stations WHERE id BETWEEN 900000 AND 900999").fetchone()[0]
+    if n:
+        first_real = con.execute("SELECT MIN(first_seen) FROM prices WHERE station_id NOT BETWEEN 900000 AND 900999").fetchone()[0]
+        con.execute("DELETE FROM prices WHERE station_id BETWEEN 900000 AND 900999")
+        con.execute("DELETE FROM stations WHERE id BETWEEN 900000 AND 900999")
+        # Demo-Runden liegen vor dem ersten echten Preis; ohne echte Preise sind alle Runden Demo
+        con.execute("DELETE FROM rounds WHERE ts < ?", (first_real or int(time.time()) + 1,))
+        con.commit()
+        con.execute("VACUUM")
+        log.info("Demo-Daten entfernt (%d Tankstellen)", n)
+    con.close()
+
+
 # ---------------------------------------------------------------- Hilfen
 def haversine(a, b, c, d):
     r = 6371.0
@@ -434,6 +450,8 @@ async def lifespan(_app):
     init_db()
     if CFG["demo"]:
         demo_seed()
+    else:
+        purge_demo()
     task = asyncio.create_task(collector_loop())
     yield
     task.cancel()
