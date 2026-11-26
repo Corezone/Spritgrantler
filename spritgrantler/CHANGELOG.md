@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.0 – 2026-11-26
+- Neu: Sensoren `sensor.spritgrantler_diesel_tagestipp` und `sensor.spritgrantler_super_tagestipp` für eine Tankempfehlung in der Früh
+  - bestes Zeitfenster für heute, oder ein deutlich günstigerer Tag in den nächsten drei Tagen
+  - Preistrend, mögliche Ersparnis auf 50 l und die günstigste Tankstelle in 5 km um Zuhause samt Navigationslink
+- Neu: Schnittstelle `/api/daily_tip?fuel=DIE` zum Testen
+
 ## 1.9.1 – 2026-11-26
 - Changelog ist jetzt in Home Assistant beim Update einsehbar
 

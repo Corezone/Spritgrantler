@@ -959,6 +959,127 @@ def api_recommendations(request: Request, fuel: str = "DIE", lat: float | None =
     return {"fuel": fuel, "recommendations": recs, "days": full90}
 
 
+# ---------------------------------------------------------------- Tagestipp (für die Push-Nachricht in der Früh)
+def daily_trend(con, fuel: str):
+    """Steigung der Tagesmediane der letzten drei Tage in ct pro Tag, None bei zu wenig Daten."""
+    days = {}
+    for r in con.execute("SELECT ts, median FROM rounds WHERE fuel=? AND ts>=?", (fuel, int(time.time()) - 8 * 86400)):
+        days.setdefault(local(r["ts"]).date(), []).append(r["median"])
+    dm = [statistics.median(v) for _, v in sorted(days.items()) if len(v) >= 12]
+    if len(dm) < 4:
+        return None
+    return (dm[-1] - dm[-3]) * 100 / 2
+
+
+def daily_tip(con, fuel: str, now: datetime, home=None, radius_km: float = 5, liters: float = 50) -> dict:
+    """Plant den Tag: bestes Zeitfenster heute, Vergleich mit den nächsten Tagen, Trend, günstigste Tankstelle bei Zuhause."""
+    label = FUEL_LABEL[fuel]
+    hours, _, full30 = hourly_profile(con, fuel, 30)
+    _, heat, full90 = hourly_profile(con, fuel, 90)
+    use_week = full90 >= 7
+
+    def val(dt):
+        v = heat[dt.weekday()][dt.hour] if use_week else hours[dt.hour]
+        return v
+
+    start = max(now.hour, 6)
+    today = [(h, val(now.replace(hour=h))) for h in range(start, 22)]
+    today = [(h, v) for h, v in today if v is not None]
+    out = {"fuel": fuel, "learning": full30 < 3}
+    lines = []
+    if not today or full30 < 3:
+        title = f"{label}: heute vor 12 Uhr tanken"
+        lines.append("Um 12 Uhr dürfen Tankstellen erhöhen, der Vormittag ist meist am günstigsten. Eigene Auswertungen folgen nach ein paar Tagen Sammeln.")
+        out.update(best_from=9, best_to=12, verdict="today")
+    else:
+        bh, bv = min(today, key=lambda x: x[1])
+        # zusammenhängendes Fenster um die beste Stunde (max. 0,5 ct schlechter)
+        ok = {h for h, v in today if v - bv <= 0.5}
+        a = b = bh
+        while a - 1 in ok:
+            a -= 1
+        while b + 1 in ok:
+            b += 1
+        worst = max(v for _, v in today)
+        spread = worst - bv
+        out.update(best_from=a, best_to=b + 1, best_ct=round(bv, 2), spread_ct=round(spread, 2))
+        # bessere Tage in den nächsten drei Tagen?
+        better = None
+        if use_week:
+            for k in range(1, 4):
+                day = (now + timedelta(days=k)).replace(minute=0, second=0, microsecond=0)
+                cand = [(val(day.replace(hour=h)), h) for h in range(6, 22) if val(day.replace(hour=h)) is not None]
+                if cand:
+                    v, h = min(cand)
+                    if v <= bv - 1.5 and (better is None or v < better[0]):
+                        better = (v, day.replace(hour=h))
+        trend = daily_trend(con, fuel)
+        out["trend_ct_per_day"] = round(trend, 2) if trend is not None else None
+        rising = trend is not None and trend > 0.4
+        window = f"{a}–{b + 1} Uhr"
+        ref = "Wochenschnitt" if use_week else "Tagesschnitt"
+        if better and not rising:
+            out["verdict"] = "later"
+            title = f"{label}: besser {when_label(better[1], now)}"
+            lines.append(f"Dann im Schnitt {de1(bv - better[0])} ct/l günstiger als heute zur besten Zeit. Musst du heute tanken: {window}.")
+            out.update(later_day=better[1].strftime("%Y-%m-%d"), later_hour=better[1].hour)
+        else:
+            out["verdict"] = "today"
+            title = f"{label}: heute {window} tanken"
+            noon = " – vor der 12-Uhr-Erhöhung" if b + 1 <= 12 else ""
+            lines.append(f"Im Schnitt {de1(abs(bv))} ct {'unter' if bv < 0 else 'über'} dem {ref}{noon}.")
+        if trend is not None:
+            if rising:
+                lines.append(f"Preise steigen seit drei Tagen (+{de1(trend)} ct pro Tag), nicht zu lange warten.")
+            elif trend < -0.4:
+                lines.append(f"Preise fallen seit drei Tagen ({de1(trend)} ct pro Tag).")
+        if spread >= 1:
+            lines.append(f"Zur ungünstigsten Stunde zahlst du heute bis zu {de2(spread / 100 * liters)} € mehr pro {round(liters)} l.")
+    # günstigste Tankstelle bei Zuhause, aktueller Preis
+    if home and home[0] is not None:
+        last = con.execute("SELECT ts FROM rounds WHERE fuel=? ORDER BY ts DESC LIMIT 1", (fuel,)).fetchone()
+        if last:
+            rows = con.execute("""SELECT s.name, s.address, s.city, s.lat, s.lon, p.price FROM prices p JOIN stations s ON s.id=p.station_id
+                                  WHERE p.fuel=? AND p.last_seen>=? ORDER BY p.price""", (fuel, last["ts"] - 60)).fetchall()
+            near = [(r, haversine(home[0], home[1], r["lat"], r["lon"])) for r in rows]
+            near = [x for x in near if x[1] <= radius_km]
+            if near:
+                r, d = near[0]
+                price_txt = f"{r['price']:.3f}".replace(".", ",")
+                lines.append(f"Günstigste in {round(radius_km)} km: {r['name']}, gerade {price_txt} € ({de1(d)} km).")
+                out.update(station=r["name"], station_price=r["price"], station_address=f"{r['address']}, {r['city']}",
+                           distance_km=round(d, 1),
+                           navigation=f"https://www.google.com/maps/dir/?api=1&destination={r['lat']},{r['lon']}")
+    out["title"] = title
+    out["message"] = " ".join(lines)
+    return out
+
+
+@app.get("/api/daily_tip")
+async def api_daily_tip(fuel: str = "DIE", lat: float | None = None, lon: float | None = None):
+    """Tagestipp zum Testen und für eigene Automationen; ohne Koordinaten wird die Zone Zuhause genommen."""
+    fuel = check_fuel(fuel)
+    home = (lat, lon) if lat is not None and lon is not None else await ha_home()
+    con = db()
+    try:
+        return daily_tip(con, fuel, datetime.now(TZ), home)
+    finally:
+        con.close()
+
+
+async def ha_home():
+    if not SUP_TOKEN:
+        return (CFG["center_lat"], CFG["center_lon"])
+    try:
+        for s in await ha_states():
+            if s.get("entity_id") == "zone.home":
+                a = s.get("attributes", {})
+                return (a.get("latitude"), a.get("longitude"))
+    except Exception:  # noqa: BLE001
+        pass
+    return (CFG["center_lat"], CFG["center_lon"])
+
+
 # ---------------------------------------------------------------- Sensoren in Home Assistant
 FUEL_SLUG = {"DIE": "diesel", "SUP": "super"}
 FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
@@ -1008,6 +1129,10 @@ async def publish_ha_sensors():
                          {**base, "icon": "mdi:chart-bell-curve", "friendly_name": f"Spritgrantler {label} Median", "stations": last["n"], "updated": stamp})
             hours, _, full_days = hourly_profile(con, fuel, 30)
             rec = recommend(hours, full_days, now)
+            tip = daily_tip(con, fuel, now, home)
+            await ha_set(f"sensor.spritgrantler_{slug}_tagestipp", tip["title"][:250],
+                         {"friendly_name": f"Spritgrantler {label} Tagestipp", "icon": "mdi:calendar-clock",
+                          **{k: v for k, v in tip.items() if k != "title"}, "updated": stamp})
             await ha_set(f"sensor.spritgrantler_{slug}_empfehlung", rec["title"],
                          {"friendly_name": f"Spritgrantler {label} Empfehlung", "icon": "mdi:clock-check-outline",
                           "text": rec["text"], "level": rec["level"], "best_hours": rec["best_hours"], "updated": stamp})
