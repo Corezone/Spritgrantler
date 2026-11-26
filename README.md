@@ -66,6 +66,7 @@ Die App meldet sich per MQTT-Discovery als Gerät **Spritgrantler** in Home Assi
 | `sensor.spritgrantler_diesel_guenstigster_zuhause` | günstigster Preis in 5 km um die Zone Zuhause, mit Entfernung |
 | `sensor.spritgrantler_diesel_median` | Median der erfassten Tankstellen |
 | `sensor.spritgrantler_diesel_empfehlung` | z. B. „Jetzt tanken“ oder „Warte bis 9 Uhr“, Attribut `text` mit Begründung |
+| `binary_sensor.spritgrantler_diesel_jetzt_guenstig` | an, wenn es um Zuhause gerade so günstig ist wie selten in den letzten 14 Tagen; Attribut `text` mit Preis, Tankstelle und Vergleich |
 | `sensor.spritgrantler_diesel_tagestipp` | Plan für den Tag, z. B. „Diesel: heute 9–12 Uhr tanken“, Attribute `message`, `verdict`, `best_from`/`best_to`, günstigste Tankstelle mit Navigationslink |
 
 Für Super heißen sie `sensor.spritgrantler_super_…`. Die Sensoren haben eine Verlaufsstatistik und eignen sich direkt für Automationen oder Node-RED, z. B. eine Push-Nachricht, wenn `…_guenstigster_zuhause` unter einen Wunschpreis fällt. Über MQTT bleiben die Werte auch nach einem Neustart von Home Assistant erhalten.

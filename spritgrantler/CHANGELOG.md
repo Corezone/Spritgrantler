@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.12.0 – Alarm, wenn es gerade günstig ist
+- **Neue Sensoren** `binary_sensor.spritgrantler_diesel_jetzt_guenstig` und `binary_sensor.spritgrantler_super_jetzt_guenstig`
+- Schalten ein, wenn die günstigste Tankstelle in 5 km um Zuhause so billig ist wie selten in den letzten 14 Tagen (höchstens 15 % der Zeit war es günstiger, mindestens 1 ct unter dem Schnitt)
+- Attribute mit Preis, Tankstelle, Entfernung, Navigationslink und fertigem Text für Push-Nachrichten
+- Braucht mindestens 3 Tage Preise um Zuhause, vorher bleibt er aus
+- Schnittstelle `/api/cheap_now?fuel=DIE` zum Testen
+
 ## v1.11.1 – Sensoren sofort nach dem Start
 - Sensoren werden direkt beim Start aus den gespeicherten Daten gemeldet, nicht erst nach der ersten Sammelrunde (rund 10 Minuten)
 

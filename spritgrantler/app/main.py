@@ -1070,6 +1070,17 @@ async def api_daily_tip(fuel: str = "DIE", lat: float | None = None, lon: float 
         con.close()
 
 
+@app.get("/api/cheap_now")
+async def api_cheap_now(fuel: str = "DIE"):
+    fuel = check_fuel(fuel)
+    home = await ha_home()
+    con = db()
+    try:
+        return cheap_now(con, fuel, home)
+    finally:
+        con.close()
+
+
 async def ha_home():
     if not SUP_TOKEN:
         return (CFG["center_lat"], CFG["center_lon"])
@@ -1083,6 +1094,76 @@ async def ha_home():
     return (CFG["center_lat"], CFG["center_lon"])
 
 
+# ---------------------------------------------------------------- Jetzt günstig (für Push-Alarme)
+CHEAP_DAYS = 14          # Vergleichszeitraum
+CHEAP_ON = 0.15          # einschalten, wenn höchstens 15 % der Zeit günstiger war
+CHEAP_OFF = 0.30         # ausschalten erst über 30 % (verhindert Flattern)
+_cheap_state: dict = {}
+
+
+def cheap_now(con, fuel: str, home, radius_km: float = 5, days: int = CHEAP_DAYS) -> dict:
+    """Ist die günstigste Tankstelle um Zuhause gerade so billig wie selten in den letzten Tagen?"""
+    label = FUEL_LABEL[fuel]
+    out = {"on": False, "learning": True}
+    if not home or home[0] is None:
+        return {**out, "text": "Keine Zone Zuhause bekannt."}
+    lat, lon = home
+    dlat, dlon = radius_km / 111.0, radius_km / (111.0 * max(0.2, math.cos(math.radians(lat))))
+    near = {r["id"]: r for r in con.execute(
+        "SELECT id, name, address, city, lat, lon FROM stations WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
+        (lat - dlat, lat + dlat, lon - dlon, lon + dlon)) if haversine(lat, lon, r["lat"], r["lon"]) <= radius_km}
+    last = con.execute("SELECT ts FROM rounds WHERE fuel=? ORDER BY ts DESC LIMIT 1", (fuel,)).fetchone()
+    if not near or not last:
+        return {**out, "text": "Noch keine Preise in der Nähe von Zuhause."}
+    since = int(time.time()) - days * 86400
+    ids = ",".join(str(i) for i in near)
+    rows = con.execute(f"SELECT station_id, price, first_seen, last_seen FROM prices WHERE fuel=? AND last_seen>=? "
+                       f"AND station_id IN ({ids}) ORDER BY first_seen", (fuel, since)).fetchall()
+    rts = [r["ts"] for r in con.execute("SELECT ts FROM rounds WHERE fuel=? AND ts>=? ORDER BY ts", (fuel, since))]
+    # günstigster Preis in der Nähe je Sammelrunde
+    mins = []
+    for ts in rts:
+        best = None
+        for r in rows:
+            if r["first_seen"] > ts:
+                break
+            if r["last_seen"] >= ts - 60 and (best is None or r["price"] < best):
+                best = r["price"]
+        if best is not None:
+            mins.append((ts, best))
+    cur = [r for r in rows if r["last_seen"] >= last["ts"] - 60]
+    if not cur:
+        return {**out, "text": "Gerade keine aktuellen Preise in der Nähe von Zuhause."}
+    c = min(cur, key=lambda r: r["price"])
+    st = near[c["station_id"]]
+    p = c["price"]
+    d = haversine(lat, lon, st["lat"], st["lon"])
+    out.update(price=p, station=st["name"], station_address=f"{st['address']}, {st['city']}", distance_km=round(d, 1),
+               navigation=f"https://www.google.com/maps/dir/?api=1&destination={st['lat']},{st['lon']}")
+    if not mins or mins[0][0] > time.time() - 3 * 86400:
+        out["text"] = f"Lernt noch: Für einen Vergleich braucht es mindestens 3 Tage Preise um Zuhause."
+        return out
+    vals = sorted(v for _, v in mins)
+    share = sum(1 for v in vals if v < p - 1e-6) / len(vals)
+    med = statistics.median(vals)
+    was_on = _cheap_state.get(fuel, False)
+    on = (share <= CHEAP_ON and p <= med - 0.01) or (was_on and share <= CHEAP_OFF and p < med)
+    _cheap_state[fuel] = on
+    below = (med - p) * 100
+    ptxt = f"{p:.3f}".replace(".", ",")
+    text = f"{ptxt} € bei {st['name']} ({de1(d)} km)"
+    if below > 0.05:
+        text += f", {de1(below)} ct unter dem {days}-Tage-Schnitt"
+    text += "."
+    if p <= vals[0] + 1e-6:
+        text += f" So günstig war es in den letzten {days} Tagen noch nie."
+    else:
+        text += f" Günstiger war es nur {round(share * 100)} % der Zeit."
+    out.update(on=on, learning=False, share_cheaper=round(share * 100), median=round(med, 3), minimum=round(vals[0], 3),
+               below_median_ct=round(below, 1), days=days, text=text, title=f"{label} gerade günstig")
+    return out
+
+
 # ---------------------------------------------------------------- Sensoren in Home Assistant
 FUEL_SLUG = {"DIE": "diesel", "SUP": "super"}
 FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
@@ -1091,7 +1172,7 @@ FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
 # Sensoren gehen bevorzugt per MQTT-Discovery nach Home Assistant: dann gibt es ein echtes Gerät
 # "Spritgrantler" mit eindeutigen IDs, die Werte bleiben über Neustarts erhalten (retained).
 # Ohne MQTT-Broker wird wie bisher über die REST-API geschrieben.
-APP_VERSION = "1.11.1"
+APP_VERSION = "1.12.0"
 MQTT = {"client": None, "ok": False, "announced": set(), "cleaned": False}
 DISC_PREFIX = "homeassistant"
 BASE_TOPIC = "spritgrantler"
@@ -1189,12 +1270,15 @@ async def mqtt_announce(entity: str, attrs: dict):
             conf[k] = attrs[k]
     if attrs.get("unit_of_measurement"):
         conf["suggested_display_precision"] = 3
-    MQTT["client"].publish(f"{DISC_PREFIX}/sensor/spritgrantler/{oid}/config", json.dumps(conf, ensure_ascii=False), retain=True)
+    domain = entity.split(".", 1)[0]
+    MQTT["client"].publish(f"{DISC_PREFIX}/{domain}/spritgrantler/{oid}/config", json.dumps(conf, ensure_ascii=False), retain=True)
     MQTT["announced"].add(entity)
     await asyncio.sleep(0.2)
 
 
 async def ha_set(entity: str, state, attrs: dict):
+    if isinstance(state, bool):
+        state = ("ON" if state else "OFF") if MQTT["ok"] else ("on" if state else "off")
     if MQTT["ok"]:
         if entity not in MQTT["announced"]:
             await mqtt_announce(entity, attrs)
@@ -1246,6 +1330,10 @@ async def publish_ha_sensors():
             await ha_set(f"sensor.spritgrantler_{slug}_tagestipp", tip["title"][:250],
                          {"friendly_name": f"Spritgrantler {label} Tagestipp", "icon": "mdi:calendar-clock",
                           **{k: v for k, v in tip.items() if k != "title"}, "updated": stamp})
+            ch = cheap_now(con, fuel, home)
+            await ha_set(f"binary_sensor.spritgrantler_{slug}_jetzt_guenstig", ch["on"],
+                         {"friendly_name": f"Spritgrantler {label} jetzt günstig", "icon": "mdi:piggy-bank-outline",
+                          **{k: v for k, v in ch.items() if k != "on"}, "updated": stamp})
             await ha_set(f"sensor.spritgrantler_{slug}_empfehlung", rec["title"],
                          {"friendly_name": f"Spritgrantler {label} Empfehlung", "icon": "mdi:clock-check-outline",
                           "text": rec["text"], "level": rec["level"], "best_hours": rec["best_hours"], "updated": stamp})
