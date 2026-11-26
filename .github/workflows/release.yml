@@ -1,0 +1,61 @@
+# Legt automatisch GitHub-Releases an, sobald sich Version oder Changelog ändern.
+# Für jede Version in spritgrantler/CHANGELOG.md ohne Release wird eines angelegt:
+# Tag = Versionsnummer, Titel und Beschreibung aus dem Changelog, ZIP des passenden Commits angehängt.
+# Der passende Commit ist der neueste, dessen Nachricht mit der Versionsnummer beginnt
+# (z. B. "1.9.0: …"); die aktuelle Version bekommt immer den neuesten Commit.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [spritgrantler/config.yaml, spritgrantler/CHANGELOG.md, .github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version lesen
+        id: v
+        run: echo "version=$(grep -oP '^version:\s*"?\K[^"]+' spritgrantler/config.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: Steht die Version im Changelog?
+        run: |
+          if ! grep -q "^## v${{ steps.v.outputs.version }} " spritgrantler/CHANGELOG.md; then
+            echo "::error::spritgrantler/CHANGELOG.md hat keinen Eintrag für v${{ steps.v.outputs.version }}"; exit 1
+          fi
+
+      - name: Fehlende Releases anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ steps.v.outputs.version }}
+        run: |
+          # Versionen vom ältesten zum neuesten
+          grep -oP '^## v\K[0-9][^ ]*' spritgrantler/CHANGELOG.md | tac > versions.txt
+          while read -r V; do
+            if gh release view "$V" >/dev/null 2>&1; then
+              echo "v$V gibt es schon"; continue
+            fi
+            if [ "$V" = "$CURRENT" ]; then
+              SHA="$GITHUB_SHA"; LATEST=true
+            else
+              SHA=$(git log --format='%H %s' | grep -m1 -E "^[0-9a-f]+ (Spritgrantler )?${V//./\\.}([: ]|$)" | cut -d' ' -f1)
+              LATEST=false
+            fi
+            if [ -z "$SHA" ]; then
+              echo "::warning::Kein Commit für v$V gefunden, übersprungen"; continue
+            fi
+            TITLE=$(grep -m1 "^## v$V " spritgrantler/CHANGELOG.md | sed 's/^## //')
+            awk -v v="## v$V " 'index($0, v)==1 {f=1; next} /^## v/ {f=0} f' spritgrantler/CHANGELOG.md > notes.md
+            git archive --format=zip --prefix=spritgrantler/ -o "spritgrantler-v$V.zip" "$SHA"
+            gh release create "$V" "spritgrantler-v$V.zip" --target "$SHA" \
+              --title "${TITLE:-v$V}" --notes-file notes.md --latest="$LATEST"
+            echo "v$V angelegt auf ${SHA:0:7}"
+          done < versions.txt

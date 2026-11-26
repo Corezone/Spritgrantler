@@ -1,62 +1,65 @@
 # Changelog
 
-## 1.10.0 – 2026-11-26
-- Neu: Sensoren `sensor.spritgrantler_diesel_tagestipp` und `sensor.spritgrantler_super_tagestipp` für eine Tankempfehlung in der Früh
-  - bestes Zeitfenster für heute, oder ein deutlich günstigerer Tag in den nächsten drei Tagen
-  - Preistrend, mögliche Ersparnis auf 50 l und die günstigste Tankstelle in 5 km um Zuhause samt Navigationslink
-- Neu: Schnittstelle `/api/daily_tip?fuel=DIE` zum Testen
+## v1.10.0 – Tagestipp für die Früh
+- **Neue Sensoren** `sensor.spritgrantler_diesel_tagestipp` und `sensor.spritgrantler_super_tagestipp` für eine Tankempfehlung am Morgen
+- Bestes Zeitfenster für heute – oder ein deutlich günstigerer Tag in den nächsten drei Tagen
+- Dazu Preistrend, mögliche Ersparnis auf 50 l und die günstigste Tankstelle in 5 km um Zuhause samt Navigationslink
+- Schnittstelle `/api/daily_tip?fuel=DIE` zum Testen
+- GitHub-Releases werden ab jetzt automatisch angelegt
 
-## 1.9.1 – 2026-11-26
-- Changelog ist jetzt in Home Assistant beim Update einsehbar
+## v1.9.1 – Changelog in Home Assistant
+- Der Changelog ist jetzt beim Update in Home Assistant einsehbar
 
-## 1.9.0 – 2026-11-26
-- Neu: Standard-Kraftstoff unter Info → Einstellungen. Damit startet die App, gespeichert je Home-Assistant-Benutzer
-- Navigation am Desktop oben im Kopf, am Handy als feste Leiste unten
+## v1.9.0 – Neue Oberfläche & Standard-Kraftstoff
+- **Standard-Kraftstoff** unter Info → Einstellungen: damit startet die App, gespeichert je Home-Assistant-Benutzer
+- **Navigation** am Desktop oben im Kopf, am Handy als feste Leiste unten
 - Suche, Standort und Radius in einer gemeinsamen Karte
 - Preisschilder auf der Karte überdecken sich nicht mehr, Bestpreis hervorgehoben
 - Tankstellenliste zeigt den Abstand zum Bestpreis sowie Entfernung, „Am günstigsten“ und „Am nächsten“
 - Empfehlungen einklappbar, Arya im Statistik-Kopf und im leeren Tankbuch
-- Markierung „jetzt“ in den Diagrammen ruhiger dargestellt
 
-## 1.8.0 – 2026-11-25
+## v1.8.0 – Statistik-Zeiträume
+- Statistik umschaltbar: **Woche, Monat, 3 Monate**
 - Löschfrist auf 90 Tage gesenkt
-- Statistik umschaltbar: Woche, Monat, 3 Monate
 
-## 1.7.1 – 2026-11-25
+## v1.7.1 – Aufgeräumte Standortwahl
 - Standortwahl zeigt nur noch den eigenen Standort und Zuhause
 
-## 1.7.0 – 2026-11-25
-- Daten gezielt löschen im Info-Tab (Preise, eigenes Tankbuch, Kartenkacheln)
+## v1.7.0 – Daten löschen
+- **Daten gezielt löschen** im Info-Tab: Preise und Statistik, eigenes Tankbuch, Kartenkacheln
 
-## 1.6.1 – 2026-11-25
+## v1.6.1 – Demo-Daten aufräumen
 - Demo-Daten werden automatisch entfernt, wenn der Demo-Modus aus ist
 
-## 1.6.0 – 2026-11-25
-- Dunkle Darstellung (automatisch, hell, dunkel)
+## v1.6.0 – Darkmode
+- **Dunkle Darstellung:** automatisch, hell oder dunkel
 
-## 1.5.1 – 2026-11-25
-- Kartenkacheln werden über die App geladen (OpenStreetMap-Sperre behoben)
+## v1.5.1 – Kartenkacheln über die App
+- Kartenkacheln werden über die App geladen und zwischengespeichert (OpenStreetMap-Sperre behoben)
 
-## 1.5.0 – 2026-11-25
-- Sensoren in Home Assistant, Watchdog, Entfernung beim günstigsten Preis
+## v1.5.0 – Sensoren in Home Assistant
+- **Sensoren** für günstigsten Preis, Median und Empfehlung je Kraftstoff, nutzbar in Automationen und Node-RED
+- Watchdog für die App, Entfernung beim günstigsten Preis
 
-## 1.4.1 – 2026-11-24
+## v1.4.1 – Günstigster jetzt
 - „Günstigster jetzt“ zeigt die Tankstelle, Antippen öffnet sie auf der Karte
 
-## 1.4.0 – 2026-11-24
-- Empfehlungen aus der Statistik
+## v1.4.0 – Empfehlungen
+- **Empfehlungen aus der Statistik:** gutes Zeitfenster, Preistrend, verlässlich günstige Tankstellen, Sparpotenzial
 
-## 1.3.0 – 2026-11-24
-- Tankbuch mit „Ich war tanken“ und Ersparnis-Statistik
+## v1.3.0 – Tankbuch
+- **Tankbuch** mit „Ich war tanken“: Vergleich mit Markt, günstigster Tankstelle in 5 km und bester Tageszeit
+- Ersparnis-Statistik je Tankvorgang
 
-## 1.2.1 – 2026-11-24
+## v1.2.1 – Neues Arya-Logo
 - Gezeichnetes Arya-Logo, realistischer überarbeitet
 
-## 1.2.0 – 2026-11-24
-- Standort des angemeldeten Home-Assistant-Benutzers
+## v1.2.0 – Standort aus Home Assistant
+- Die Karte startet beim Standort des angemeldeten Home-Assistant-Benutzers
 
-## 1.1.0 – 2026-11-24
-- Adresssuche, Standort aus Home Assistant, OpenStreetMap-Karte
+## v1.1.0 – Adresssuche & Karte
+- **Adresssuche**, Standort aus Home Assistant, OpenStreetMap-Karte
 
-## 1.0.0 – 2026-11-24
-- Erste Version: Spritpreise für ganz Österreich als Home-Assistant-App
+## v1.0.0 – Erste Version
+- Spritpreise für ganz Österreich (E-Control) als Home-Assistant-App
+- Karte mit Radius, Tankstellenliste mit Navigation über Google Maps, Statistik zur besten Tankzeit
