@@ -21,7 +21,7 @@
   --warm:#B0652E; --warm-soft:#F6EBE2; --neutral:#ECEFF2;
   --r-lg:24px; --r-md:18px; --r-sm:12px;
   --shadow:0 1px 2px rgba(21,25,30,.04), 0 8px 28px rgba(21,25,30,.08);
-  --nav-h:72px;
+  --nav-h:66px;
   --map-bg:#E9EDF1; --grid:#E8ECEF; --zero:#C5CDD4; --good-soft:#E1ECF5; --good-ink:#24507A; --bad-ink:#8A4A1E;
   --tip-bg:#15191E; --tip-ink:#FFFFFF; --nav-bg:rgba(255,255,255,.92); --overlay:rgba(22,25,28,.32);
   color-scheme:light;
@@ -49,28 +49,32 @@ svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 
 /* ---------- App-Rahmen ---------- */
 .app{display:flex;flex-direction:column;height:100dvh;max-width:1400px;margin:0 auto}
-header{display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+header{display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;position:relative;z-index:1100}
 .logo{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
-.logo-mark{width:52px;height:52px;border-radius:15px;display:block;box-shadow:0 6px 16px rgba(46,64,82,.18)}
-.logo h1{font-size:19px;margin:0;line-height:1.1}
+.logo-mark{width:44px;height:44px;border-radius:13px;display:block;box-shadow:0 4px 12px rgba(46,64,82,.16)}
+.logo h1{font-size:18px;margin:0;line-height:1.1}
 .logo small{display:block;color:var(--muted);font-size:12px;font-family:Inter}
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--eye);margin-right:5px;vertical-align:1px;animation:pulse 2s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(127,183,220,.7)}70%{box-shadow:0 0 0 8px rgba(127,183,220,0)}100%{box-shadow:0 0 0 0 rgba(127,183,220,0)}}
 
 .seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;gap:2px}
-.seg button{padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted);transition:.2s}
+.seg button{padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted);transition:.2s;min-height:40px}
+.seg button:not(.on):hover{color:var(--text)}
 .seg button.on{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(46,64,82,.25)}
 
 main{flex:1;min-height:0;position:relative}
 .view{position:absolute;inset:0;display:none}
 .view.on{display:block}
-.scroll{overflow-y:auto;height:100%;padding:4px 16px calc(var(--nav-h) + 24px + env(safe-area-inset-bottom))}
+.scroll{overflow-y:auto;height:100%;padding:4px 16px calc(var(--nav-h) + 20px + env(safe-area-inset-bottom))}
 
-nav.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:1000;
-  display:flex;gap:4px;padding:6px;background:var(--nav-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow)}
-nav.tabs button{display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;color:var(--muted);font-weight:600;font-size:14px;transition:.2s}
-nav.tabs button.on{background:var(--accent-soft);color:var(--accent-ink)}
+/* Mobil: fest angedockte Leiste unten, verdeckt keine Inhalte mehr */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:1000;display:flex;justify-content:space-around;
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--nav-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line)}
+nav.tabs button{flex:1;max-width:120px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;border-radius:16px;color:var(--muted);font-weight:600;font-size:11.5px;transition:.2s}
+nav.tabs button svg{width:24px;height:24px;padding:2px 14px;box-sizing:content-box;border-radius:999px;transition:.2s}
+nav.tabs button.on{color:var(--accent-ink)}
+nav.tabs button.on svg{background:var(--accent-soft)}
 
 /* ---------- Karte ---------- */
 #map{position:absolute;inset:0;background:var(--map-bg)}
@@ -78,7 +82,11 @@ nav.tabs button.on{background:var(--accent-soft);color:var(--accent-ink)}
 .leaflet-tile-pane{filter:saturate(.35) brightness(1.04) contrast(.92)}
 .map-ctrl{position:absolute;top:10px;left:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .ctrl-row{display:flex;gap:8px;align-items:stretch}
-.search{position:relative;display:flex;align-items:center;gap:10px;padding:0 8px 0 16px;min-height:52px;color:var(--muted)}
+.search{position:relative;display:flex;align-items:center;gap:10px;padding:0 6px 0 16px;min-height:52px;color:var(--muted)}
+.search .loc{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;color:var(--accent-ink);background:var(--accent-soft);flex:none}
+.search .loc.busy svg{animation:spin 1s linear infinite}
+.ctrl-card{overflow:hidden}
+.ctrl-card .radius{border-top:1px solid var(--neutral)}
 .search input{flex:1;min-width:0;border:0;outline:0;background:none;font:500 16px Inter;color:var(--text);height:50px}
 .search input::placeholder{color:var(--faint)}
 .search .clear{width:40px;height:40px;border-radius:12px;display:none;place-items:center;color:var(--muted)}
@@ -97,9 +105,12 @@ nav.tabs button.on{background:var(--accent-soft);color:var(--accent-ink)}
 .loc-item small{color:var(--muted)}
 .map-ctrl > *{pointer-events:auto}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow)}
-.radius{flex:1;display:flex;align-items:center;gap:12px;padding:10px 16px;min-width:0}
+.radius{display:flex;align-items:center;gap:12px;padding:4px 16px 6px;min-width:0}
+.chips{display:flex;gap:6px}
+.chips button{padding:6px 10px;border-radius:999px;font:600 12px Inter;color:var(--muted);background:var(--neutral)}
+.chips button.on{background:var(--accent-soft);color:var(--accent-ink)}
 .radius label{font-size:12px;color:var(--muted);white-space:nowrap}
-.radius b{font-family:"Space Grotesk";font-size:17px;min-width:56px;text-align:right}
+.radius b{font-family:"Space Grotesk";font-size:16px;min-width:50px;text-align:right}
 input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 .icon-btn{width:52px;display:grid;place-items:center;color:var(--accent)}
 .icon-btn.busy svg{animation:spin 1s linear infinite}
@@ -110,6 +121,9 @@ input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 .pin::after{content:"";position:absolute;left:50%;bottom:-5px;width:8px;height:8px;background:inherit;border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:translateX(-50%) rotate(45deg)}
 .pin sup{font-size:9px;margin-left:1px}
 .pin.top{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pin.best{background:var(--eye);color:#0E2233;border-color:var(--eye);font-size:14px;padding:5px 10px}
+.pin.best::after{border-color:var(--eye)}
+.dot.fresh{border-color:var(--accent);width:12px;height:12px}
 .pin.top::after{border-color:var(--accent)}
 .pin.stale{color:var(--faint)}
 .dot{width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid var(--faint);transform:translate(-50%,-50%)}
@@ -118,15 +132,15 @@ input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 
 .sheet{position:absolute;left:0;right:0;bottom:0;z-index:600;background:var(--surface);border-top-left-radius:28px;border-top-right-radius:28px;
   border:1px solid var(--line);box-shadow:0 -10px 40px rgba(22,25,28,.10);height:46%;display:flex;flex-direction:column;transition:height .3s cubic-bezier(.2,.8,.2,1)}
-.sheet.min{height:150px}
+.sheet.min{height:calc(150px + var(--nav-h))}
 .sheet.max{height:82%}
 .grab{padding:10px 0 2px;display:grid;place-items:center;cursor:grab;touch-action:none}
 .grab i{width:42px;height:5px;border-radius:9px;background:var(--line)}
-.sheet-head{display:flex;align-items:baseline;justify-content:space-between;padding:4px 20px 10px}
+.sheet-head{display:flex;align-items:baseline;justify-content:space-between;padding:4px 20px 10px;touch-action:none}
 .sheet-head h2{margin:0;font-size:18px}
 .sheet-head span{color:var(--muted);font-size:13px}
-.list{overflow-y:auto;padding:0 12px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom));flex:1}
-.st{display:flex;align-items:center;gap:14px;padding:14px 12px;border-radius:var(--r-md);transition:background .15s;cursor:pointer;animation:rise .35s both}
+.list{overflow-y:auto;padding:0 10px calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));flex:1}
+.st{display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:var(--r-md);transition:background .15s;cursor:pointer;animation:rise .35s both}
 .st:hover,.st.sel{background:var(--bg)}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .rank{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font:600 14px "Space Grotesk";background:var(--neutral);color:var(--muted);flex:none}
@@ -134,12 +148,17 @@ input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 .st-main{flex:1;min-width:0}
 .st-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-sub{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-meta{display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.tag{font:600 11px/1 Inter;padding:4px 7px;border-radius:7px;background:var(--neutral);color:var(--muted);white-space:nowrap}
+.tag.good{background:var(--good-soft);color:var(--good-ink)}
+.tag.warn{background:var(--warm-soft);color:var(--bad-ink)}
 .price{font:700 24px/1 "Space Grotesk";text-align:right;white-space:nowrap}
 .price sup{font-size:13px;margin-left:1px}
-.price small{display:block;font:500 11px Inter;color:var(--muted);margin-top:4px}
+.price small{display:block;font:600 11px Inter;color:var(--muted);margin-top:5px}
+.price small.up{color:var(--bad-ink)}
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);margin-left:6px;vertical-align:1px}
 .badge.grey{background:var(--neutral);color:var(--muted)}
-.nav-btn{width:48px;height:48px;border-radius:15px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;flex:none;transition:.15s}
+.nav-btn{width:44px;height:44px;border-radius:14px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;flex:none;transition:.15s}
 .nav-btn:hover{background:var(--accent);color:#fff}
 .empty{padding:28px 16px;text-align:center;color:var(--muted)}
 
@@ -148,7 +167,8 @@ input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 .hero{position:relative;overflow:hidden;border-radius:var(--r-lg);padding:22px 22px 20px;color:#fff;background:linear-gradient(135deg,#243444 0%,#3E5468 55%,#5F87A8 100%);box-shadow:0 14px 34px rgba(46,64,82,.30);margin-bottom:14px}
 .hero.wait{background:linear-gradient(135deg,#8A5326 0%,#B0652E 60%,#C98451 100%);box-shadow:0 14px 34px rgba(176,101,46,.25)}
 .hero.ok{background:linear-gradient(135deg,#1E2329 0%,#3A424B 60%,#59656F 100%);box-shadow:0 14px 34px rgba(30,35,41,.25)}
-.hero::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08)}
+.hero-art{position:absolute;right:-8px;bottom:-14px;width:120px;height:120px;opacity:.95;pointer-events:none}
+.hero > :not(.hero-art){position:relative;max-width:calc(100% - 96px)}
 .hero .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;font-weight:600}
 .hero h2{font-size:30px;margin:6px 0 4px}
 .hero p{margin:0;opacity:.92;max-width:560px}
@@ -208,6 +228,8 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .recs{margin-bottom:14px}
 .rec{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--neutral)}
 .rec:last-child{border:0;padding-bottom:4px}
+.recs.folded .rec.extra{display:none}
+.more-btn{font-size:13px;font-weight:600;color:var(--accent-ink);padding:10px 0 2px}
 .rec .ic{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent-ink)}
 .rec.good .ic{background:var(--good-soft);color:var(--good-ink)}
 .rec.warn .ic{background:var(--warm-soft);color:var(--bad-ink)}
@@ -223,6 +245,13 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .checks small{color:var(--muted);font-size:13px}
 .btn.danger{background:var(--warm-soft);color:var(--bad-ink)}
 .btn.danger.armed{background:var(--warm);color:#fff}
+.empty-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:26px 18px 22px;gap:6px}
+.empty-hero img{width:120px;height:120px;margin-bottom:6px}
+.empty-hero h3{margin:0;font-size:18px}
+.empty-hero p{margin:0;color:var(--muted);max-width:380px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--neutral)}
+.set-row:last-child{border:0;padding-bottom:2px}
+.set-row h3{font-size:15px}
 /* ---------- Info ---------- */
 .rows{padding:6px 18px}
 .row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--neutral)}
@@ -247,17 +276,37 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .hours-list span{color:var(--muted)}
 
 @media (min-width:900px){
-  .sheet{left:auto;right:20px;top:84px;bottom:20px;width:420px;height:auto!important;border-radius:28px}
+  :root{--nav-h:0px}
+  header{gap:24px;padding:14px 20px}
+  .logo{flex:0 0 auto}
+  nav.tabs{position:static;order:2;flex:1;justify-content:center;padding:0;background:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;gap:4px}
+  nav.tabs button{flex:0 0 auto;max-width:none;flex-direction:row;gap:8px;padding:10px 16px;border-radius:999px;font-size:14px}
+  nav.tabs button svg{width:20px;height:20px;padding:0;background:none!important}
+  nav.tabs button.on{background:var(--accent-soft)}
+  nav.tabs button:not(.on):hover{color:var(--text)}
+  #fuelSeg{order:3}
+  .scroll{padding-bottom:32px}
+  main{margin:0 20px 20px;border-radius:28px;overflow:hidden}
+  #v-stats,#v-fill,#v-info{border-radius:0}
+  .sheet{left:auto;right:14px;top:14px;bottom:14px;width:400px;height:auto!important;border-radius:24px}
+  .list{padding-bottom:16px}
   .grab{display:none}
-  .map-ctrl{right:460px}
+  .sheet-head{padding-top:18px}
+  .map-ctrl{right:auto;width:380px;top:14px;left:14px}
   .kpis{grid-template-columns:repeat(4,1fr)}
   .grid2{grid-template-columns:1fr 1fr}
   .grid2 .wide{grid-column:1/-1}
   .modal{align-items:center}
   .modal .box{border-radius:28px}
 }
-@media (max-width:560px){ nav.tabs{gap:2px} nav.tabs button{flex-direction:column;gap:2px;padding:8px 14px;font-size:11px} }
-@media (max-width:380px){ .seg button{padding:9px 12px} nav.tabs button{padding:8px 10px} }
+@media (max-width:560px){
+  header{padding-top:calc(8px + env(safe-area-inset-top));padding-bottom:8px}
+  .logo small{font-size:11.5px}
+  #fuelSeg button{padding:7px 13px;font-size:13.5px;min-height:36px}
+  .kpi .v{font-size:23px}
+  .hero h2{font-size:26px}
+}
+@media (max-width:380px){ .seg button{padding:8px 11px} .logo h1{font-size:16px} }
 </style>
 </head>
 <body>
@@ -284,6 +333,12 @@ table.data th:first-child,table.data td:first-child{text-align:left}
       <img class="logo-mark" src="static/logo.png" alt="Arya">
       <div><h1>Spritgrantler</h1><small id="status"><span class="live-dot"></span>verbinde…</small></div>
     </div>
+    <nav class="tabs" id="tabs">
+      <button data-v="map" class="on"><svg class="i"><use href="#i-map"/></svg>Karte</button>
+      <button data-v="fill"><svg class="i"><use href="#i-fuel"/></svg>Tanken</button>
+      <button data-v="stats"><svg class="i"><use href="#i-chart"/></svg>Statistik</button>
+      <button data-v="info"><svg class="i"><use href="#i-info"/></svg>Info</button>
+    </nav>
     <div class="seg" id="fuelSeg">
       <button data-f="DIE" class="on">Diesel</button>
       <button data-f="SUP">Super</button>
@@ -295,20 +350,18 @@ table.data th:first-child,table.data td:first-child{text-align:left}
     <section class="view on" id="v-map">
       <div id="map"></div>
       <div class="map-ctrl">
-        <div class="card">
+        <div class="card ctrl-card">
           <div class="search" id="search"><svg class="i"><use href="#i-search"/></svg>
             <input id="q" type="text" inputmode="search" placeholder="Adresse oder Ort suchen" autocomplete="off" enterkeyhint="search" aria-label="Adresse suchen">
             <button class="clear" id="qClear" aria-label="Suche leeren"><svg class="i"><use href="#i-x"/></svg></button>
+            <button class="loc" id="locBtn" title="Standort wählen" aria-label="Standort wählen"><svg class="i"><use href="#i-loc"/></svg></button>
           </div>
           <div class="results" id="results"></div>
-        </div>
-        <div class="ctrl-row">
-        <div class="card radius">
-          <label>Radius</label>
-          <input type="range" id="radius" min="1" max="50" step="1" value="5" aria-label="Radius in Kilometern">
-          <b id="radiusVal">5 km</b>
-        </div>
-        <button class="card icon-btn" id="locBtn" title="Standort wählen" aria-label="Standort wählen"><svg class="i"><use href="#i-loc"/></svg></button>
+          <div class="radius">
+            <label for="radius">Radius</label>
+            <input type="range" id="radius" min="1" max="50" step="1" value="5" aria-label="Radius in Kilometern">
+            <b id="radiusVal">5 km</b>
+          </div>
         </div>
       </div>
       <div class="sheet" id="sheet">
@@ -325,6 +378,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
           <div class="seg small" id="periodSeg"><button data-d="7">Woche</button><button data-d="30" class="on">Monat</button><button data-d="90">3 Monate</button></div>
         </div>
         <div class="hero" id="hero">
+          <img class="hero-art" src="static/arya-illustration.svg" alt="">
           <div class="eyebrow" id="heroEyebrow">Beste Tankzeit</div>
           <h2 id="heroTitle">…</h2>
           <p id="heroText"></p>
@@ -377,7 +431,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
         <div class="stats-head"><h2>Tankbuch</h2><span class="st-sub" id="fillUser"></span></div>
         <button class="btn primary big-cta" id="fillBtn"><svg class="i"><use href="#i-fuel"/></svg>Ich war tanken</button>
         <div class="kpis" id="fillKpis" style="margin-top:14px"></div>
-        <div class="card panel recs" id="fillRecs" style="margin-bottom:14px;display:none"></div>
+        <div class="card panel recs" id="fillRecs" style="margin:14px 0;display:none"></div>
         <div class="card panel" id="fillInsight"></div>
         <div class="card panel" style="margin-top:14px">
           <h3>Ersparnis je Tankvorgang</h3>
@@ -394,10 +448,18 @@ table.data th:first-child,table.data td:first-child{text-align:left}
     <!-- Info -->
     <section class="view" id="v-info">
       <div class="scroll"><div class="wrap" style="max-width:640px">
-        <div class="card panel" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <div><h3>Darstellung</h3><div class="st-sub">Automatisch folgt der Einstellung deines Geräts</div></div>
-          <div class="seg small" id="themeSeg"><button data-t="auto">Automatisch</button><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
+        <div class="stats-head"><h2>Einstellungen</h2></div>
+        <div class="card panel" style="margin-bottom:14px;padding-top:6px">
+          <div class="set-row">
+            <div><h3>Standard-Kraftstoff</h3><div class="st-sub" style="white-space:normal">Damit startet die App. Oben umschalten gilt nur bis zum nächsten Öffnen.</div></div>
+            <div class="seg small" id="defFuelSeg"><button data-f="DIE">Diesel</button><button data-f="SUP">Super</button></div>
+          </div>
+          <div class="set-row">
+            <div><h3>Darstellung</h3><div class="st-sub" style="white-space:normal">Automatisch folgt der Einstellung deines Geräts</div></div>
+            <div class="seg small" id="themeSeg"><button data-t="auto">Auto</button><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
+          </div>
         </div>
+        <div class="stats-head" style="margin-top:22px"><h2>System</h2></div>
         <div class="card rows" id="infoRows"></div>
         <div class="card panel" style="margin-top:14px">
           <h3>Daten löschen</h3>
@@ -414,12 +476,6 @@ table.data th:first-child,table.data td:first-child{text-align:left}
     </section>
   </main>
 
-  <nav class="tabs" id="tabs">
-    <button data-v="map" class="on"><svg class="i"><use href="#i-map"/></svg>Karte</button>
-    <button data-v="fill"><svg class="i"><use href="#i-fuel"/></svg>Tanken</button>
-    <button data-v="stats"><svg class="i"><use href="#i-chart"/></svg>Statistik</button>
-    <button data-v="info"><svg class="i"><use href="#i-info"/></svg>Info</button>
-  </nav>
 </div>
 
 <div class="modal" id="modal"><div class="box" id="box"></div></div>
@@ -489,9 +545,10 @@ function initMap(){
   meMarker = L.marker(S.center, {icon: L.divIcon({className:"", html:'<div class="me"></div>', iconSize:[0,0]}), draggable:true, zIndexOffset:1000}).addTo(map);
   meMarker.on("dragend", e => setCenter([e.target.getLatLng().lat, e.target.getLatLng().lng]));
   map.on("click", e => setCenter([e.latlng.lat, e.latlng.lng]));
+  map.on("zoomend", renderMarkers);
   fitRadius();
 }
-function fitRadius(){ map.fitBounds(circle.getBounds(), {paddingTopLeft:[20,140], paddingBottomRight: innerWidth >= 900 ? [460,20] : [20, innerHeight*0.46]}); }
+function fitRadius(){ const wide = innerWidth >= 900; map.fitBounds(circle.getBounds(), {paddingTopLeft: wide ? [410,30] : [16,130], paddingBottomRight: wide ? [430,30] : [16, innerHeight*0.46]}); }
 function setCenter(c, fit=true){
   S.center = c; store.set("center", c);
   circle.setLatLng(c); meMarker.setLatLng(c);
@@ -501,13 +558,24 @@ function setCenter(c, fit=true){
 
 function renderMarkers(){
   markers.clearLayers();
+  if(!map) return;
   const fresh = S.stations.filter(s => s.fresh);
-  const top = fresh.slice(0,3).map(s => s.id);
+  const top = fresh.slice(0,3).map(s => s.id), best = fresh.length ? fresh[0].id : null;
+  // Preisschilder dürfen sich nicht überdecken: günstigste zuerst platzieren, der Rest wird zum Punkt
+  const c0 = map.latLngToContainerPoint(S.center);
+  const placed = [{x1:c0.x-12, x2:c0.x+12, y1:c0.y-12, y2:c0.y+12}], label = new Set();
+  const order = S.stations.slice().sort((a,b) => (b.id===S.sel) - (a.id===S.sel) || (b.fresh - a.fresh) || a.price - b.price);
+  order.forEach(s => {
+    if(!s.fresh && s.id !== S.sel) return;
+    const p = map.latLngToContainerPoint([s.lat, s.lon]);
+    const box = {x1:p.x-32, x2:p.x+32, y1:p.y-34, y2:p.y};
+    if(s.id === S.sel || !placed.some(b => box.x1 < b.x2 && box.x2 > b.x1 && box.y1 < b.y2 && box.y2 > b.y1)){ placed.push(box); label.add(s.id); }
+  });
   S.stations.forEach(s => {
-    const cls = "pin" + (top.includes(s.id) ? " top" : "") + (s.fresh ? "" : " stale") + (S.sel===s.id ? " sel" : "");
-    const html = s.fresh || S.sel===s.id ? `<div class="${cls}">${priceHTML(s.price)}</div>` : '<div class="dot"></div>';
-    const m = L.marker([s.lat, s.lon], {icon: L.divIcon({className:"", html, iconSize:[0,0]}),
-      zIndexOffset: top.includes(s.id) ? 500 : (s.fresh ? 100 : 0)});
+    const cls = "pin" + (s.id === best ? " best" : top.includes(s.id) ? " top" : "") + (s.fresh ? "" : " stale") + (S.sel===s.id ? " sel" : "");
+    const html = label.has(s.id) ? `<div class="${cls}">${priceHTML(s.price)}</div>` : `<div class="dot${s.fresh ? " fresh" : ""}"></div>`;
+    const m = L.marker([s.lat, s.lon], {icon: L.divIcon({className:"", html, iconSize:[0,0]}), title: s.name + " · " + euro(s.price),
+      zIndexOffset: s.id === S.sel ? 900 : top.includes(s.id) ? 500 : (label.has(s.id) ? 200 : 0)});
     m.on("click", () => { selectStation(s.id, true); });
     markers.addLayer(m);
   });
@@ -522,16 +590,26 @@ function renderList(){
     L_.innerHTML = `<div class="empty">Noch keine Preise in diesem Umkreis.<br>Radius vergrößern oder kurz warten, bis die erste Sammelrunde fertig ist.</div>`;
     return;
   }
-  L_.innerHTML = S.stations.map((s,i) => `
+  const minP = Math.min(...S.stations.filter(s => s.fresh).map(s => s.price));
+  const nearest = S.stations.reduce((a,b) => b.dist_km < a.dist_km ? b : a);
+  L_.innerHTML = S.stations.map((s,i) => {
+    const diff = isFinite(minP) ? Math.round((s.price - minP)*1000)/10 : null;
+    const diffTxt = !s.fresh ? ago(s.seen) : diff === 0 || diff == null ? "Bestpreis" : "+" + diff.toFixed(1).replace(".", ",") + " ct";
+    const tags = [`<span class="tag">${km(s.dist_km)}</span>`];
+    if(s.fresh && diff === 0) tags.push('<span class="tag good">Am günstigsten</span>');
+    if(s.id === nearest.id && S.stations.length > 1) tags.push('<span class="tag">Am nächsten</span>');
+    if(!s.fresh) tags.push('<span class="tag warn">Preis älter</span>');
+    return `
     <div class="st ${S.sel===s.id?'sel':''}" data-id="${s.id}" style="animation-delay:${Math.min(i,12)*25}ms">
       <div class="rank">${i+1}</div>
       <div class="st-main">
-        <div class="st-name">${esc(s.name)}${i===0 && s.fresh ? '<span class="badge">Am günstigsten</span>' : ''}${!s.fresh ? '<span class="badge grey">älter</span>' : ''}</div>
-        <div class="st-sub">${km(s.dist_km)} · ${esc(s.address)}</div>
+        <div class="st-name">${esc(s.name)}</div>
+        <div class="st-sub">${esc(s.address)}${s.city ? ", " + esc(s.city) : ""}</div>
+        <div class="st-meta">${tags.join("")}</div>
       </div>
-      <div class="price">${priceHTML(s.price)}<small>${ago(s.seen)}</small></div>
+      <div class="price">${priceHTML(s.price)}<small class="${diff > 0 && s.fresh ? "up" : ""}">${diffTxt}</small></div>
       <a class="nav-btn" href="${navUrl(s)}" target="_blank" rel="noopener" aria-label="Navigation starten" onclick="event.stopPropagation()"><svg class="i"><use href="#i-nav"/></svg></a>
-    </div>`).join("");
+    </div>`; }).join("");
   L_.querySelectorAll(".st").forEach(el => el.addEventListener("click", () => openStation(+el.dataset.id)));
 }
 
@@ -628,7 +706,7 @@ function barChart(box, vals, opt){
     const col = good ? "var(--data)" : "var(--warm)";
     const gap = N > 12 ? 2 : Math.min(18, bw*.3);
     const r = el("rect", {x:x+gap/2, y:top, width:bw-gap, height:h, rx:4, style:"fill:" + col, opacity: opt.now===i ? 1 : .82}, svg);
-    if(opt.now === i){ el("rect", {x:x-.5, y:m.t-6, width:bw+1, height:H-m.t-m.b+6, rx:6, fill:"none", style:"stroke:var(--text)", "stroke-width":1.5, "stroke-dasharray":"3 3"}, svg); }
+    if(opt.now === i){ const bg = el("rect", {x:x, y:m.t-4, width:bw, height:H-m.t-m.b+4, rx:6, style:"fill:var(--accent-soft)"}, svg); svg.insertBefore(bg, svg.firstChild); }
     const hit = el("rect", {x, y:m.t, width:bw, height:H-m.t-m.b, fill:"transparent"}, svg);
     const html = opt.tipHtml ? opt.tipHtml(i, v) : `${opt.tipLabel ? opt.tipLabel(i) : i + ":00–" + i + ":59 Uhr"}<br><b>${v>0?"+":""}${v.toFixed(1).replace(".", ",")} ct</b> ${v<=0?"unter":"über"} Tagesschnitt`;
     hit.addEventListener("pointermove", e => showTip(html, e.clientX, e.clientY));
@@ -812,9 +890,14 @@ async function loadRecs(target, kinds){
     const box = $(target);
     if(!recs.length){ if(kinds){ box.style.display = "none"; } else box.innerHTML = '<h3>Empfehlungen</h3><div class="empty">Noch zu wenig Daten.</div>'; return; }
     box.style.display = "";
-    box.innerHTML = `<h3>${kinds ? "Tipp für dich" : "Empfehlungen"}</h3>` + recs.map(r => `<div class="rec ${r.level}">
+    const LIMIT = 2, fold = recs.length > LIMIT + 1;
+    box.classList.toggle("folded", fold && !S.recsOpen);
+    box.innerHTML = `<h3>${kinds ? "Tipp für dich" : "Empfehlungen"}</h3>` + recs.map((r,i) => `<div class="rec ${r.level}${i >= LIMIT ? " extra" : ""}">
       <span class="ic"><svg class="i"><use href="#${REC_ICON[r.kind] || "i-info"}"/></svg></span>
-      <div><b>${esc(r.title)}</b><p>${esc(r.text)}</p></div></div>`).join("");
+      <div><b>${esc(r.title)}</b><p>${esc(r.text)}</p></div></div>`).join("") +
+      (fold ? `<button class="more-btn">${S.recsOpen ? "Weniger anzeigen" : "Alle " + recs.length + " anzeigen"}</button>` : "");
+    const mb = box.querySelector(".more-btn");
+    if(mb) mb.addEventListener("click", () => { S.recsOpen = !S.recsOpen; box.classList.toggle("folded", !S.recsOpen); mb.textContent = S.recsOpen ? "Weniger anzeigen" : "Alle " + recs.length + " anzeigen"; });
   }catch(e){ if(!kinds) $(target).innerHTML = '<h3>Empfehlungen</h3><div class="empty">Nicht verfügbar.</div>'; }
 }
 
@@ -921,13 +1004,16 @@ async function loadFill(){
     loadRecs("#fillRecs", ["personal","time"]);
     const d = await api("fillups"), sm = d.summary;
     $("#fillUser").textContent = d.user || "";
-    const sv = sm.saved_vs_median;
+    const sv = sm.saved_vs_median, emptyBook = !sm.count;
+    $("#fillKpis").style.display = emptyBook ? "none" : "";
+    $("#cFill").closest(".panel").style.display = emptyBook ? "none" : "";
+    $("#fillList").closest(".panel").style.display = emptyBook ? "none" : "";
     $("#fillKpis").innerHTML =
       kpi("Gespart ggü. Ø", sm.count ? `<span style="color:${sv>=0?"var(--good-ink)":"var(--bad-ink)"}">${eur(sv)}</span>` : "–", sm.count ? (sv>=0 ? "unter dem Durchschnitt" : "über dem Durchschnitt") : "noch keine Einträge") +
       kpi("Getankt", sm.count ? sm.liters.toFixed(0) + " l" : "–", sm.count + (sm.count === 1 ? " Tankvorgang" : " Tankvorgänge")) +
       kpi("Ausgegeben", sm.count ? eur(sm.spent) : "–", "") +
       kpi("Ø bezahlt", priceHTML(sm.avg_price), sm.avg_market ? "Markt Ø " + euro(sm.avg_market) : "");
-    $("#fillInsight").innerHTML = !sm.count ? '<div class="empty">Tipp nach dem Tanken auf „Ich war tanken“. Ich vergleiche deinen Preis mit dem Markt, der günstigsten Tankstelle in 5 km und der besten Tageszeit.</div>' :
+    $("#fillInsight").innerHTML = !sm.count ? `<div class="empty-hero"><img src="static/arya-illustration.svg" alt=""><h3>Noch nichts getankt</h3><p>Tipp nach dem Tanken auf „Ich war tanken“. Arya vergleicht deinen Preis mit dem Markt, der günstigsten Tankstelle in 5 km und der besten Tageszeit.</p></div>` :
       `<h3>Was drin gewesen wäre</h3><div class="rows" style="padding:0">
         <div class="row"><span>Immer bei der günstigsten in 5 km</span><b>${eur(Math.max(0, sm.missed_local))} weniger</b></div>
         <div class="row"><span>Immer zur besten Tageszeit</span><b>${eur(Math.max(0, sm.missed_day))} weniger</b></div></div>`;
@@ -1008,6 +1094,13 @@ function setFuel(f){
 }
 document.querySelectorAll("#fuelSeg button").forEach(b => b.addEventListener("click", () => setFuel(b.dataset.f)));
 
+// Standard-Kraftstoff: am Server je Home-Assistant-Benutzer, lokal als Rückfall
+function markDefFuel(f){ document.querySelectorAll("#defFuelSeg button").forEach(b => b.classList.toggle("on", b.dataset.f === f)); }
+document.querySelectorAll("#defFuelSeg button").forEach(b => b.addEventListener("click", async () => {
+  const f = b.dataset.f; markDefFuel(f); store.set("defaultFuel", f); setFuel(f);
+  try{ await fetch("api/prefs", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({default_fuel: f})}); }catch(e){}
+}));
+
 document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => {
   S.view = b.dataset.v;
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
@@ -1055,7 +1148,7 @@ async function refreshMe(force){
   const me = S.me;
   if(me && me.found && me.has_location){
     $("#q").value = ""; $("#search").classList.remove("has");
-    $("#q").placeholder = "Adresse suchen · du bist: " + me.name;
+    $("#q").placeholder = "Adresse suchen";
     setCenter([me.lat, me.lon]);
     return true;
   }
@@ -1106,13 +1199,16 @@ function alertBox(msg){ $("#box").innerHTML = `<div class="box-head"><h2>Hinweis
 
 // Bottom-Sheet: Ziehen bzw. Antippen wechselt die Höhe
 (() => {
-  const sheet = $("#sheet"), grab = $("#grab"), states = ["min","","max"]; let i = 1, y0 = null;
+  const sheet = $("#sheet"), states = ["min","","max"]; let i = 1, y0 = null;
   const apply = () => { sheet.className = "sheet" + (states[i] ? " " + states[i] : ""); };
-  grab.addEventListener("pointerdown", e => { y0 = e.clientY; grab.setPointerCapture(e.pointerId); });
-  grab.addEventListener("pointerup", e => {
-    const dy = e.clientY - y0; y0 = null;
-    if(Math.abs(dy) < 8) i = (i + 1) % 3; else i = Math.max(0, Math.min(2, i + (dy < 0 ? 1 : -1)));
-    apply();
+  [$("#grab"), $(".sheet-head")].forEach(h => {
+    h.addEventListener("pointerdown", e => { if(innerWidth >= 900) return; y0 = e.clientY; h.setPointerCapture(e.pointerId); });
+    h.addEventListener("pointerup", e => {
+      if(y0 === null) return;
+      const dy = e.clientY - y0; y0 = null;
+      if(Math.abs(dy) < 8) i = (i + 1) % 3; else i = Math.max(0, Math.min(2, i + (dy < 0 ? 1 : -1)));
+      apply();
+    });
   });
 })();
 
@@ -1121,11 +1217,15 @@ let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() 
 // ---------- Start ----------
 (async () => {
   try{ S.cfg = await api("config"); }catch(e){ S.cfg = {center:[48.2082,16.3738]}; }
+  let def = store.get("defaultFuel", null);
+  try{ const pr = await api("prefs"); if(pr.default_fuel){ def = pr.default_fuel; store.set("defaultFuel", def); } }catch(e){}
+  if(def === "DIE" || def === "SUP"){ S.fuel = def; store.set("fuel", def); }
+  markDefFuel(def || S.fuel);
   // Vorrang: angemeldete Person aus Home Assistant, dann gespeicherte Mitte, dann Zuhause
   try{ S.me = await api("ha/me"); }catch(e){ S.me = null; }
   if(S.me && S.me.found && S.me.has_location){
     S.center = [S.me.lat, S.me.lon];
-    $("#q").placeholder = "Adresse suchen · du bist: " + S.me.name;
+    $("#q").placeholder = "Adresse suchen";
   } else if(!S.center){
     S.center = S.cfg.center;
     try{ const d = await api("ha/locations"); const h = (d.locations||[]).find(l => l.home); if(h) S.center = [h.lat, h.lon]; }catch(e){}

@@ -90,6 +90,8 @@ def init_db():
             market_median REAL, market_min REAL, local_min REAL, local_min_name TEXT,
             day_best REAL, day_best_ts INTEGER, day_final INTEGER DEFAULT 0, created INTEGER);
         CREATE INDEX IF NOT EXISTS ix_fill_user ON fillups(user_id, ts);
+        CREATE TABLE IF NOT EXISTS prefs(
+            user_id TEXT PRIMARY KEY, default_fuel TEXT, updated INTEGER);
         """
     )
     con.commit()
@@ -1048,6 +1050,34 @@ def prune_tiles():
         for f in TILE_DIR.rglob("*.png"):
             if f.stat().st_mtime < cut:
                 f.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------- Einstellungen je Benutzer
+class PrefsIn(BaseModel):
+    default_fuel: str | None = None
+
+
+@app.get("/api/prefs")
+def api_prefs_get(request: Request):
+    uid, _ = who(request)
+    con = db()
+    r = con.execute("SELECT default_fuel FROM prefs WHERE user_id=?", (uid,)).fetchone()
+    con.close()
+    return {"default_fuel": r["default_fuel"] if r else None}
+
+
+@app.put("/api/prefs")
+def api_prefs_put(body: PrefsIn, request: Request):
+    if body.default_fuel not in (None, "DIE", "SUP"):
+        raise HTTPException(400, "default_fuel muss DIE oder SUP sein")
+    uid, _ = who(request)
+    con = db()
+    con.execute("INSERT INTO prefs(user_id, default_fuel, updated) VALUES(?,?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET default_fuel=excluded.default_fuel, updated=excluded.updated",
+                (uid, body.default_fuel, int(time.time())))
+    con.commit()
+    con.close()
+    return {"default_fuel": body.default_fuel}
 
 
 # ---------------------------------------------------------------- Daten löschen
