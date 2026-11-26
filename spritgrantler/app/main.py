@@ -255,6 +255,8 @@ async def collect_round():
 async def collector_loop():
     STATE["running"] = True
     last_clean = 0
+    # Sensoren sofort aus den gespeicherten Daten melden, nicht erst nach der ersten Sammelrunde
+    await publish_ha_sensors()
     while True:
         start = time.time()
         try:
@@ -1089,7 +1091,7 @@ FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
 # Sensoren gehen bevorzugt per MQTT-Discovery nach Home Assistant: dann gibt es ein echtes Gerät
 # "Spritgrantler" mit eindeutigen IDs, die Werte bleiben über Neustarts erhalten (retained).
 # Ohne MQTT-Broker wird wie bisher über die REST-API geschrieben.
-APP_VERSION = "1.11.0"
+APP_VERSION = "1.11.1"
 MQTT = {"client": None, "ok": False, "announced": set(), "cleaned": False}
 DISC_PREFIX = "homeassistant"
 BASE_TOPIC = "spritgrantler"

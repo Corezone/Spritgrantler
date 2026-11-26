@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.11.1 – Sensoren sofort nach dem Start
+- Sensoren werden direkt beim Start aus den gespeicherten Daten gemeldet, nicht erst nach der ersten Sammelrunde (rund 10 Minuten)
+
 ## v1.11.0 – Gerät in Home Assistant
 - **Spritgrantler erscheint als Gerät** in Home Assistant: alle Sensoren kommen per MQTT-Discovery mit eindeutigen IDs, ganz ohne Einrichtung
 - Die Zugangsdaten zum Mosquitto-Broker holt sich die App selbst vom Supervisor
