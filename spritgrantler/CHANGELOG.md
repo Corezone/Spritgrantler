@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.11.0 – Gerät in Home Assistant
+- **Spritgrantler erscheint als Gerät** in Home Assistant: alle Sensoren kommen per MQTT-Discovery mit eindeutigen IDs, ganz ohne Einrichtung
+- Die Zugangsdaten zum Mosquitto-Broker holt sich die App selbst vom Supervisor
+- Werte bleiben über Neustarts von Home Assistant erhalten, Sensoren lassen sich umbenennen, Bereichen zuordnen und ausblenden
+- Die bisherigen Entitäts-IDs bleiben gleich, bestehende Automationen und Node-RED-Flows laufen weiter
+- Ohne MQTT-Broker werden die Sensoren wie bisher direkt geschrieben
+- Docker-Betrieb: Broker über `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASSWORD` einstellbar
+
 ## v1.10.0 – Tagestipp für die Früh
 - **Neue Sensoren** `sensor.spritgrantler_diesel_tagestipp` und `sensor.spritgrantler_super_tagestipp` für eine Tankempfehlung am Morgen
 - Bestes Zeitfenster für heute – oder ein deutlich günstigerer Tag in den nächsten drei Tagen

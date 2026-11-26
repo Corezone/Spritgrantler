@@ -16,4 +16,9 @@ services:
       CENTER_LAT: "48.2082"
       CENTER_LON: "16.3738"
       DEMO: "false"             # "true" = Beispieldaten zum Ausprobieren
+      # Optional: Sensoren per MQTT-Discovery an Home Assistant schicken
+      # MQTT_HOST: "192.168.1.10"
+      # MQTT_PORT: "1883"
+      # MQTT_USER: "spritgrantler"
+      # MQTT_PASSWORD: "geheim"
     restart: unless-stopped

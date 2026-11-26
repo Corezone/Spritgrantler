@@ -8,7 +8,7 @@ name: Release
 on:
   push:
     branches: [main]
-    paths: [spritgrantler/config.yaml, spritgrantler/CHANGELOG.md, .github/workflows/release.yml]
+    paths: [spritgrantler/config.yaml, spritgrantler/CHANGELOG.md, spritgrantler/app/main.py, .github/workflows/release.yml]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,13 @@ jobs:
       - name: Version lesen
         id: v
         run: echo "version=$(grep -oP '^version:\s*"?\K[^"]+' spritgrantler/config.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: Version in config.yaml und main.py gleich?
+        run: |
+          PY=$(grep -oP '^APP_VERSION = "\K[^"]+' spritgrantler/app/main.py)
+          if [ "$PY" != "${{ steps.v.outputs.version }}" ]; then
+            echo "::error::spritgrantler/app/main.py hat APP_VERSION $PY, config.yaml hat ${{ steps.v.outputs.version }}"; exit 1
+          fi
 
       - name: Steht die Version im Changelog?
         run: |

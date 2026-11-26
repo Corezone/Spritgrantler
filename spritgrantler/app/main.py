@@ -454,6 +454,7 @@ async def lifespan(_app):
         demo_seed()
     else:
         purge_demo()
+    await mqtt_start()
     task = asyncio.create_task(collector_loop())
     yield
     task.cancel()
@@ -1085,21 +1086,131 @@ FUEL_SLUG = {"DIE": "diesel", "SUP": "super"}
 FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
 
 
+# Sensoren gehen bevorzugt per MQTT-Discovery nach Home Assistant: dann gibt es ein echtes Gerät
+# "Spritgrantler" mit eindeutigen IDs, die Werte bleiben über Neustarts erhalten (retained).
+# Ohne MQTT-Broker wird wie bisher über die REST-API geschrieben.
+APP_VERSION = "1.11.0"
+MQTT = {"client": None, "ok": False, "announced": set(), "cleaned": False}
+DISC_PREFIX = "homeassistant"
+BASE_TOPIC = "spritgrantler"
+META_KEYS = ("friendly_name", "unit_of_measurement", "state_class", "icon", "device_class")
+
+
+async def mqtt_start():
+    """Holt die Zugangsdaten von Mosquitto beim Supervisor und verbindet sich."""
+    if MQTT["client"] is not None:
+        return
+    try:
+        if os.environ.get("MQTT_HOST"):
+            # Betrieb ohne Home-Assistant-Supervisor, z. B. Docker
+            cfg = {"host": os.environ["MQTT_HOST"], "port": os.environ.get("MQTT_PORT", 1883),
+                   "username": os.environ.get("MQTT_USER"), "password": os.environ.get("MQTT_PASSWORD")}
+        elif SUP_TOKEN:
+            r = await client().get("http://supervisor/services/mqtt", headers={"Authorization": f"Bearer {SUP_TOKEN}"})
+            if r.status_code != 200:
+                log.info("Kein MQTT-Broker gefunden, Sensoren laufen über die REST-API")
+                return
+            cfg = r.json().get("data", {})
+        else:
+            return
+        import paho.mqtt.client as mqtt
+
+        c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="spritgrantler")
+        if cfg.get("username"):
+            c.username_pw_set(cfg["username"], cfg.get("password"))
+        if cfg.get("ssl"):
+            c.tls_set()
+        c.will_set(f"{BASE_TOPIC}/status", "offline", retain=True)
+
+        def on_connect(cl, _u, _f, rc, _p=None):
+            MQTT["ok"] = not rc.is_failure
+            if MQTT["ok"]:
+                MQTT["announced"].clear()  # nach einem Reconnect Discovery erneut senden
+                cl.publish(f"{BASE_TOPIC}/status", "online", retain=True)
+                cl.subscribe(f"{DISC_PREFIX}/status")
+                log.info("MQTT verbunden (%s:%s)", cfg.get("host"), cfg.get("port"))
+
+        def on_disconnect(*_a):
+            MQTT["ok"] = False
+
+        def on_message(_cl, _u, m):
+            if m.topic == f"{DISC_PREFIX}/status" and m.payload == b"online":
+                MQTT["announced"].clear()  # Home Assistant neu gestartet
+
+        c.on_connect, c.on_disconnect, c.on_message = on_connect, on_disconnect, on_message
+        c.reconnect_delay_set(2, 60)
+        c.connect_async(cfg.get("host", "core-mosquitto"), int(cfg.get("port", 1883)), keepalive=60)
+        c.loop_start()
+        MQTT["client"] = c
+        for _ in range(50):
+            if MQTT["ok"]:
+                break
+            await asyncio.sleep(0.1)
+    except Exception as e:  # noqa: BLE001
+        log.warning("MQTT nicht verfügbar, Sensoren laufen über die REST-API: %s", e)
+
+
+def addon_slug() -> str | None:
+    host = os.environ.get("HOSTNAME", "")
+    return host.replace("-", "_") if "_" not in host and "-" in host else None
+
+
+async def remove_rest_state(entity: str):
+    """Entfernt einen alten, per REST geschriebenen Zustand, damit das MQTT-Gerät die Entitäts-ID bekommt."""
+    if not SUP_TOKEN:
+        return
+    try:
+        await client().delete(f"{HA_API}/states/{entity}", headers={"Authorization": f"Bearer {SUP_TOKEN}"})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def mqtt_announce(entity: str, attrs: dict):
+    oid = entity.split(".", 1)[1]
+    await remove_rest_state(entity)
+    name = attrs.get("friendly_name", oid).removeprefix("Spritgrantler ").strip()
+    slug = addon_slug()
+    conf = {
+        "name": name,
+        "unique_id": oid,
+        "default_entity_id": entity,
+        "state_topic": f"{BASE_TOPIC}/{oid}/state",
+        "json_attributes_topic": f"{BASE_TOPIC}/{oid}/attributes",
+        "availability_topic": f"{BASE_TOPIC}/status",
+        "device": {"identifiers": ["spritgrantler"], "name": "Spritgrantler", "manufacturer": "Corezone",
+                   "model": "Spritpreise Österreich (E-Control)", "sw_version": APP_VERSION,
+                   **({"configuration_url": f"homeassistant://hassio/ingress/{slug}"} if slug else {})},
+        "origin": {"name": "Spritgrantler", "sw_version": APP_VERSION, "support_url": "https://github.com/Corezone/spritgrantler"},
+    }
+    for k in ("unit_of_measurement", "state_class", "icon", "device_class"):
+        if k in attrs:
+            conf[k] = attrs[k]
+    if attrs.get("unit_of_measurement"):
+        conf["suggested_display_precision"] = 3
+    MQTT["client"].publish(f"{DISC_PREFIX}/sensor/spritgrantler/{oid}/config", json.dumps(conf, ensure_ascii=False), retain=True)
+    MQTT["announced"].add(entity)
+    await asyncio.sleep(0.2)
+
+
 async def ha_set(entity: str, state, attrs: dict):
+    if MQTT["ok"]:
+        if entity not in MQTT["announced"]:
+            await mqtt_announce(entity, attrs)
+        oid = entity.split(".", 1)[1]
+        extra = {k: v for k, v in attrs.items() if k not in META_KEYS}
+        MQTT["client"].publish(f"{BASE_TOPIC}/{oid}/attributes", json.dumps(extra, ensure_ascii=False, default=str), retain=True)
+        MQTT["client"].publish(f"{BASE_TOPIC}/{oid}/state", str(state), retain=True)
+        return
     await client().post(f"{HA_API}/states/{entity}", headers={"Authorization": f"Bearer {SUP_TOKEN}"},
                         json={"state": state, "attributes": attrs})
 
 
 async def publish_ha_sensors():
     """Schreibt nach jeder Sammelrunde Sensoren nach Home Assistant (für Automationen und Node-RED)."""
-    if not SUP_TOKEN:
+    if not SUP_TOKEN and not MQTT["ok"]:
         return
     try:
-        home = None
-        for s in await ha_states():
-            if s.get("entity_id") == "zone.home":
-                a = s.get("attributes", {})
-                home = (a.get("latitude"), a.get("longitude"))
+        home = await ha_home()
         con = db()
         now = datetime.now(TZ)
         for fuel in FUELS:

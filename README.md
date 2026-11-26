@@ -58,7 +58,7 @@ Bei ganz Österreich, 30 Minuten Intervall und 90 Tagen Speicherung bleibt die D
 
 ## Sensoren in Home Assistant
 
-Nach jeder Sammelrunde legt die App diese Sensoren an bzw. aktualisiert sie (Diesel und Super):
+Die App meldet sich per MQTT-Discovery als Gerät **Spritgrantler** in Home Assistant an, sobald der Mosquitto-Broker installiert ist – ohne weitere Einrichtung. Ohne Broker schreibt sie die Sensoren direkt über die API. Nach jeder Sammelrunde werden diese Sensoren aktualisiert (Diesel und Super):
 
 | Sensor | Inhalt |
 |---|---|
@@ -66,8 +66,9 @@ Nach jeder Sammelrunde legt die App diese Sensoren an bzw. aktualisiert sie (Die
 | `sensor.spritgrantler_diesel_guenstigster_zuhause` | günstigster Preis in 5 km um die Zone Zuhause, mit Entfernung |
 | `sensor.spritgrantler_diesel_median` | Median der erfassten Tankstellen |
 | `sensor.spritgrantler_diesel_empfehlung` | z. B. „Jetzt tanken“ oder „Warte bis 9 Uhr“, Attribut `text` mit Begründung |
+| `sensor.spritgrantler_diesel_tagestipp` | Plan für den Tag, z. B. „Diesel: heute 9–12 Uhr tanken“, Attribute `message`, `verdict`, `best_from`/`best_to`, günstigste Tankstelle mit Navigationslink |
 
-Für Super heißen sie `sensor.spritgrantler_super_…`. Die Sensoren haben eine Verlaufsstatistik und eignen sich direkt für Automationen oder Node-RED, z. B. eine Push-Nachricht, wenn `…_guenstigster_zuhause` unter einen Wunschpreis fällt. Nach einem Neustart von Home Assistant erscheinen sie wieder mit der nächsten Sammelrunde.
+Für Super heißen sie `sensor.spritgrantler_super_…`. Die Sensoren haben eine Verlaufsstatistik und eignen sich direkt für Automationen oder Node-RED, z. B. eine Push-Nachricht, wenn `…_guenstigster_zuhause` unter einen Wunschpreis fällt. Über MQTT bleiben die Werte auch nach einem Neustart von Home Assistant erhalten.
 
 ## API-Endpunkte
 
