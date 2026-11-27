@@ -239,6 +239,15 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .kpi-link:hover{border-color:var(--accent)}
 .kpi-link .d{line-height:1.35;margin-top:4px}
 .checks{display:grid;gap:10px;margin:14px 0 4px}
+.al-status{display:grid;gap:8px;margin-top:14px}
+.al-status div{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--neutral);font-size:13.5px;line-height:1.45}
+.al-status div.on{background:var(--good-soft);color:var(--good-ink)}
+.al-status b{flex:none;min-width:48px}
+#alBody.off{opacity:.55}
+.na-details summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.na-details summary::-webkit-details-marker{display:none}
+.na-details summary h3{margin:0}
+.na-details[open] summary{margin-bottom:10px}
 .na-pick{font:500 16px Inter;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:0 14px;height:52px;background:var(--surface);width:100%;margin:4px 0 12px}
 .na-btns{display:flex;gap:10px;flex-wrap:wrap}
 .na-btns .btn{flex:1;min-width:160px;margin-top:0;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -467,8 +476,32 @@ table.data th:first-child,table.data td:first-child{text-align:left}
           </div>
         </div>
         <div class="stats-head" style="margin-top:22px"><h2>Tankalarm</h2></div>
-        <div class="card panel" id="naCard">
-          <h3>Push, wenn Tanken günstig ist</h3>
+        <div class="card panel" id="alCard">
+          <div class="set-row" style="padding-top:2px">
+            <div><h3>Push, wenn Tanken günstig ist</h3><div class="st-sub" style="white-space:normal" id="alWho">Gilt nur für dich.</div></div>
+            <div class="seg small" id="alOn"><button data-v="0">Aus</button><button data-v="1">An</button></div>
+          </div>
+          <div id="alBody">
+            <div class="set-row">
+              <div><h3>Ort</h3><div class="st-sub" style="white-space:normal" id="alWhere">Günstig im Umkreis von 5 km</div></div>
+              <div class="seg small" id="alPlace"><button data-v="here">Wo ich bin</button><button data-v="home">Zuhause</button></div>
+            </div>
+            <div class="set-row">
+              <div><h3>Kraftstoff</h3></div>
+              <div class="seg small" id="alFuel"><button data-v="DIE">Diesel</button><button data-v="SUP">Super</button><button data-v="DIE,SUP">Beide</button></div>
+            </div>
+            <div class="set-row" style="display:block">
+              <label class="st-sub" for="alNotify">Push an</label>
+              <select class="na-pick" id="alNotify" style="margin-bottom:0"></select>
+            </div>
+            <div class="al-status" id="alStatus"></div>
+            <div class="na-btns" style="margin-top:12px"><button class="btn secondary" id="alTest">Test-Push senden</button></div>
+            <div class="st-sub" style="white-space:normal;margin-top:10px">Höchstens eine Push pro Kraftstoff und Tag, nicht zwischen 21 und 7 Uhr. Ist es danach noch günstig, kommt sie am Morgen.</div>
+          </div>
+          <div class="sub" id="alNa" style="display:none;margin:0"></div>
+        </div>
+        <details class="card panel na-details" id="naCard" style="margin-top:14px">
+          <summary><h3>Lieber mit Node-RED?</h3><span class="st-sub">Fertigen Flow herunterladen</span></summary>
           <div class="sub" style="white-space:normal">Fertiger Node-RED-Flow: meldet sich, sobald Diesel oder Super in 5 km um Zuhause so günstig ist wie selten in den letzten 14 Tagen. Höchstens einmal pro Tag und nicht in der Nacht.</div>
           <label class="st-sub" for="naTarget">Push an</label>
           <select class="na-pick" id="naTarget"><option value="">Später in Node-RED eintragen</option></select>
@@ -482,7 +515,7 @@ table.data th:first-child,table.data td:first-child{text-align:left}
             <li><span>Kein Handy oben gewählt? Dann im Node <b>Push Handy</b> bei <b>Action</b> deinen Dienst eintragen, z. B. <code>notify.mobile_app_mein_handy</code>.</span></li>
             <li><span><b>Deploy</b>, dann in der Gruppe <b>Test</b> auf <b>Jetzt senden</b>. Nur ein Kraftstoff oder andere Nachtruhe: ganz oben im Node <b>Logik</b>.</span></li>
           </ol>
-        </div>
+        </details>
         <div class="stats-head" style="margin-top:22px"><h2>System</h2></div>
         <div class="card rows" id="infoRows"></div>
         <div class="card panel" style="margin-top:14px">
@@ -1094,6 +1127,46 @@ $("#naCopy").addEventListener("click", async () => {
   }catch(e){ b.textContent = "Kopieren nicht möglich – bitte herunterladen"; }
   setTimeout(() => b.textContent = old, 2200);
 });
+// ---------- Persönlicher Tankalarm ----------
+const AL = {};
+function segOn(id, v){ document.querySelectorAll(id + " button").forEach(b => b.classList.toggle("on", b.dataset.v === String(v))); }
+function renderAlarm(a){
+  Object.assign(AL, a);
+  if(!a.available){ $("#alBody").style.display = "none"; $("#alOn").style.display = "none";
+    $("#alNa").style.display = ""; $("#alNa").textContent = (a.reason || "Nicht verfügbar.") + " Nutze dann den Node-RED-Flow darunter."; return; }
+  segOn("#alOn", a.enabled ? 1 : 0);
+  segOn("#alPlace", a.place);
+  segOn("#alFuel", a.fuels.join(","));
+  $("#alBody").classList.toggle("off", !a.enabled);
+  $("#alWho").textContent = "Gilt nur für dich" + (a.user ? " (" + a.user + ")" : "") + "." + (a.person ? "" : " Dein Benutzer ist mit keiner Person verknüpft, darum gilt Zuhause.");
+  $("#alWhere").textContent = a.where === "Zuhause" ? "Günstig in 5 km um Zuhause" : "Günstig in 5 km um deinen aktuellen Standort";
+  const sel = $("#alNotify"); sel.innerHTML = "";
+  if(!a.targets.length){ const o = document.createElement("option"); o.textContent = "Kein Handy mit Companion-App gefunden"; o.value = ""; sel.appendChild(o); }
+  a.targets.forEach(t => { const o = document.createElement("option"); o.value = t; o.textContent = t.replace("notify.mobile_app_", "") + (t === a.suggested ? " (dein Handy)" : ""); sel.appendChild(o); });
+  if(a.notify) sel.value = a.notify;
+  $("#alStatus").innerHTML = a.fuels.map(f => { const st = a.status[f] || {}; return `<div class="${st.on ? "on" : ""}"><b>${FUEL_NAME[f].replace(" 95","")}</b><span>${esc(st.on ? "Jetzt günstig: " + st.text : st.text || "Noch keine Preise")}</span></div>`; }).join("");
+}
+async function saveAlarm(patch){
+  try{
+    const r = await fetch("api/alarm", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(patch)});
+    if(r.ok) renderAlarm(await r.json());
+  }catch(e){}
+}
+async function loadAlarm(){ try{ renderAlarm(await api("alarm")); }catch(e){ renderAlarm({available:false, reason:"Tankalarm nicht erreichbar."}); } }
+document.querySelectorAll("#alOn button").forEach(b => b.addEventListener("click", () => saveAlarm({enabled: b.dataset.v === "1"})));
+document.querySelectorAll("#alPlace button").forEach(b => b.addEventListener("click", () => saveAlarm({place: b.dataset.v})));
+document.querySelectorAll("#alFuel button").forEach(b => b.addEventListener("click", () => saveAlarm({fuels: b.dataset.v.split(",")})));
+$("#alNotify").addEventListener("change", e => { if(e.target.value) saveAlarm({notify: e.target.value}); });
+$("#alTest").addEventListener("click", async () => {
+  const b = $("#alTest"), old = b.textContent; b.textContent = "Sende …";
+  try{
+    const r = await fetch("api/alarm/test", {method:"POST"});
+    const j = await r.json().catch(() => ({}));
+    b.textContent = r.ok ? "Gesendet an " + j.notify.replace("notify.mobile_app_", "") : (j.detail || "Fehler");
+  }catch(e){ b.textContent = "Fehler"; }
+  setTimeout(() => b.textContent = old, 3000);
+});
+
 async function loadNotifyTargets(){
   try{
     const {targets} = await api("nodered/notify_targets");
@@ -1106,6 +1179,7 @@ async function loadNotifyTargets(){
 
 async function loadInfo(){
   if(!S.naLoaded){ S.naLoaded = true; loadNotifyTargets(); }
+  loadAlarm();
   try{
     const d = await api("info");
     const mb = (d.db_bytes/1048576).toFixed(1).replace(".", ",");

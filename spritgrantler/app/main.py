@@ -94,6 +94,9 @@ def init_db():
         CREATE INDEX IF NOT EXISTS ix_fill_user ON fillups(user_id, ts);
         CREATE TABLE IF NOT EXISTS prefs(
             user_id TEXT PRIMARY KEY, default_fuel TEXT, updated INTEGER);
+        CREATE TABLE IF NOT EXISTS alarms(
+            user_id TEXT PRIMARY KEY, name TEXT, enabled INTEGER DEFAULT 0, notify TEXT, fuels TEXT DEFAULT 'DIE',
+            place TEXT DEFAULT 'here', sent TEXT DEFAULT '{}', updated INTEGER);
         """
     )
     con.commit()
@@ -267,6 +270,7 @@ async def collector_loop():
             else:
                 await collect_round()
             await publish_ha_sensors()
+            await run_alarms()
             if start - last_clean > 6 * 3600:
                 cleanup()
                 prune_tiles()
@@ -1130,7 +1134,7 @@ CHEAP_OFF = 0.30         # ausschalten erst über 30 % (verhindert Flattern)
 _cheap_state: dict = {}
 
 
-def cheap_now(con, fuel: str, home, radius_km: float = 5, days: int = CHEAP_DAYS) -> dict:
+def cheap_now(con, fuel: str, home, radius_km: float = 5, days: int = CHEAP_DAYS, key=None) -> dict:
     """Ist die günstigste Tankstelle um Zuhause gerade so billig wie selten in den letzten Tagen?"""
     label = FUEL_LABEL[fuel]
     out = {"on": False, "learning": True}
@@ -1175,9 +1179,10 @@ def cheap_now(con, fuel: str, home, radius_km: float = 5, days: int = CHEAP_DAYS
     vals = sorted(v for _, v in mins)
     share = sum(1 for v in vals if v < p - 1e-6) / len(vals)
     med = statistics.median(vals)
-    was_on = _cheap_state.get(fuel, False)
+    key = key or fuel
+    was_on = _cheap_state.get(key, False)
     on = (share <= CHEAP_ON and p <= med - 0.01) or (was_on and share <= CHEAP_OFF and p < med)
-    _cheap_state[fuel] = on
+    _cheap_state[key] = on
     below = (med - p) * 100
     ptxt = f"{p:.3f}".replace(".", ",")
     text = f"{ptxt} € bei {st['name']} ({de1(d)} km)"
@@ -1187,10 +1192,248 @@ def cheap_now(con, fuel: str, home, radius_km: float = 5, days: int = CHEAP_DAYS
     if p <= vals[0] + 1e-6:
         text += f" So günstig war es in den letzten {days} Tagen noch nie."
     else:
-        text += f" Günstiger war es nur {round(share * 100)} % der Zeit."
+        text += f" Günstiger war es {'nur ' if share <= 0.2 else ''}{round(share * 100)} % der Zeit."
     out.update(on=on, learning=False, share_cheaper=round(share * 100), median=round(med, 3), minimum=round(vals[0], 3),
                below_median_ct=round(below, 1), days=days, text=text, title=f"{label} gerade günstig")
     return out
+
+
+# ---------------------------------------------------------------- Persönlicher Tankalarm
+# Jeder Home-Assistant-Benutzer kann ihn im Info-Tab einschalten. Nach jeder Sammelrunde prüft die App
+# für seinen Standort (oder Zuhause), ob es gerade günstig ist, und schickt eine Push an sein Handy.
+ALARM_FROM, ALARM_TO = 7, 21   # keine Push in der Nacht
+
+
+def slugify(txt: str) -> str:
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFKD", txt).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+
+
+async def notify_targets() -> list[str]:
+    if not SUP_TOKEN:
+        return []
+    r = await client().get(f"{HA_API}/services", headers={"Authorization": f"Bearer {SUP_TOKEN}"})
+    r.raise_for_status()
+    out = []
+    for d in r.json():
+        if d.get("domain") == "notify":
+            out += [f"notify.{k}" for k in d.get("services", {}) if k.startswith("mobile_app_")]
+    return sorted(out)
+
+
+async def ha_template(tpl: str) -> str:
+    r = await client().post(f"{HA_API}/template", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, json={"template": tpl})
+    r.raise_for_status()
+    return r.text.strip()
+
+
+async def person_of(uid: str, states: list | None = None):
+    for st in states if states is not None else await ha_states():
+        a = st.get("attributes", {})
+        if st.get("entity_id", "").startswith("person.") and a.get("user_id") == uid:
+            return st
+    return None
+
+
+async def guess_notify(person: dict | None, targets: list[str]) -> str | None:
+    """Handy der Person: Gerätename hinter ihren Trackern -> notify.mobile_app_<gerät>."""
+    if not person:
+        return None
+    for tr in person.get("attributes", {}).get("device_trackers", []):
+        cands = []
+        try:
+            name = await ha_template("{{ device_attr(device_id('%s'), 'name') or '' }}" % tr)
+            if name:
+                cands.append(slugify(name))
+        except Exception:  # noqa: BLE001
+            pass
+        base = tr.split(".", 1)[-1]
+        cands += [base] + [base.removesuffix(sfx) for sfx in ("_geocoded", "_location", "_standort", "_gps")]
+        for c in cands:
+            if f"notify.mobile_app_{c}" in targets:
+                return f"notify.mobile_app_{c}"
+    return None
+
+
+def alarm_row(con, uid: str):
+    r = con.execute("SELECT * FROM alarms WHERE user_id=?", (uid,)).fetchone()
+    return dict(r) if r else None
+
+
+def alarm_place(person, home, place: str):
+    """Ort für den Vergleich: aktueller Standort der Person oder Zuhause."""
+    a = (person or {}).get("attributes", {})
+    if place == "here" and a.get("latitude") is not None:
+        return (a["latitude"], a["longitude"]), "Standort"
+    return home, "Zuhause"
+
+
+async def send_push(notify: str, title: str, message: str, actions=None, tag="spritgrantler_tankalarm"):
+    service = notify.split(".", 1)[-1]
+    data = {"tag": tag, "group": "spritgrantler", "channel": "Tankalarm", "importance": "high",
+            "notification_icon": "mdi:piggy-bank-outline", "actions": actions or []}
+    if addon_slug():
+        data.update(clickAction=f"/hassio/ingress/{addon_slug()}", url=f"/hassio/ingress/{addon_slug()}")
+    r = await client().post(f"{HA_API}/services/notify/{service}", headers={"Authorization": f"Bearer {SUP_TOKEN}"},
+                            json={"title": title, "message": message, "data": data})
+    r.raise_for_status()
+
+
+def push_content(hits: list[tuple[str, dict]], where: str):
+    names = [FUEL_LABEL[f].replace(" 95", "") for f, _ in hits]
+    title = (" und ".join(names)) + " gerade günstig" + ("" if where == "Zuhause" else " in deiner Nähe")
+    message = "\n\n".join(f"{FUEL_LABEL[f].replace(' 95', '')}: {c['text']}" for f, c in hits)
+    navs = [(f, c) for f, c in hits if c.get("navigation")]
+    if len(navs) == 2 and navs[0][1].get("station") == navs[1][1].get("station"):
+        actions = [{"action": "URI", "title": "Navigieren", "uri": navs[0][1]["navigation"]}]
+    else:
+        actions = [{"action": "URI", "title": f"{FUEL_LABEL[f].replace(' 95', '')} navigieren", "uri": c["navigation"]} for f, c in navs]
+    return title, message, actions
+
+
+async def run_alarms():
+    """Nach jeder Sammelrunde: alle eingeschalteten Alarme prüfen und bei Bedarf eine Push schicken."""
+    if not SUP_TOKEN:
+        return
+    con = db()
+    try:
+        rows = [dict(r) for r in con.execute("SELECT * FROM alarms WHERE enabled=1 AND notify IS NOT NULL")]
+        if not rows:
+            return
+        states = await ha_states()
+        home = next(((s["attributes"].get("latitude"), s["attributes"].get("longitude"))
+                     for s in states if s.get("entity_id") == "zone.home"), (CFG["center_lat"], CFG["center_lon"]))
+        now = datetime.now(TZ)
+        today = now.strftime("%Y-%m-%d")
+        quiet = not (ALARM_FROM <= now.hour < ALARM_TO)
+        for a in rows:
+            person = await person_of(a["user_id"], states)
+            loc, where = alarm_place(person, home, a["place"])
+            sent = json.loads(a["sent"] or "{}")
+            hits = []
+            for fuel in [f for f in (a["fuels"] or "DIE").split(",") if f in FUELS]:
+                ch = cheap_now(con, fuel, loc, key=(a["user_id"], fuel))
+                if ch["on"] and sent.get(fuel) != today:
+                    hits.append((fuel, ch))
+            if not hits or quiet:
+                continue
+            title, message, actions = push_content(hits, where)
+            try:
+                await send_push(a["notify"], title, message, actions)
+                for f, _ in hits:
+                    sent[f] = today
+                con.execute("UPDATE alarms SET sent=? WHERE user_id=?", (json.dumps(sent), a["user_id"]))
+                con.commit()
+                log.info("Tankalarm an %s: %s", a["name"] or a["user_id"], title)
+            except Exception as e:  # noqa: BLE001
+                log.warning("Tankalarm an %s fehlgeschlagen: %s", a["notify"], e)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Tankalarme nicht geprüft: %s", e)
+    finally:
+        con.close()
+
+
+class AlarmIn(BaseModel):
+    enabled: bool | None = None
+    notify: str | None = None
+    fuels: list[str] | None = None
+    place: str | None = None
+
+
+async def alarm_view(request: Request) -> dict:
+    uid, uname = who(request)
+    if not SUP_TOKEN or uid == "lokal":
+        return {"available": False, "reason": "Nur in Home Assistant verfügbar."}
+    states = await ha_states()
+    person = await person_of(uid, states)
+    targets = await notify_targets()
+    con = db()
+    try:
+        row = alarm_row(con, uid)
+        suggested = await guess_notify(person, targets)
+        cfg = {"enabled": bool(row and row["enabled"]), "notify": (row or {}).get("notify") or suggested,
+               "fuels": ((row or {}).get("fuels") or "DIE").split(","), "place": (row or {}).get("place") or "here"}
+        home = next(((s["attributes"].get("latitude"), s["attributes"].get("longitude"))
+                     for s in states if s.get("entity_id") == "zone.home"), (CFG["center_lat"], CFG["center_lon"]))
+        loc, where = alarm_place(person, home, cfg["place"])
+        status = {}
+        for fuel in FUELS:
+            ch = cheap_now(con, fuel, loc, key=("view", uid, fuel))
+            status[fuel] = {k: ch.get(k) for k in ("on", "learning", "text", "price", "station", "distance_km")}
+        return {"available": True, "user": uname, "person": person["entity_id"] if person else None,
+                "has_location": bool(person and person["attributes"].get("latitude") is not None),
+                "targets": targets, "suggested": suggested, "where": where, "status": status,
+                "quiet": [ALARM_FROM, ALARM_TO], **cfg}
+    finally:
+        con.close()
+
+
+@app.get("/api/alarm")
+async def api_alarm_get(request: Request):
+    return await alarm_view(request)
+
+
+@app.put("/api/alarm")
+async def api_alarm_put(body: AlarmIn, request: Request):
+    uid, uname = who(request)
+    if not SUP_TOKEN or uid == "lokal":
+        raise HTTPException(400, "Nur in Home Assistant verfügbar")
+    if body.notify is not None and not (body.notify.startswith("notify.mobile_app_") and slugify(body.notify[7:]) == body.notify[7:]):
+        raise HTTPException(400, "Ungültiger Push-Dienst")
+    if body.place is not None and body.place not in ("here", "home"):
+        raise HTTPException(400, "place muss here oder home sein")
+    fuels = None
+    if body.fuels is not None:
+        fuels = [f for f in body.fuels if f in FUELS]
+        if not fuels:
+            raise HTTPException(400, "Mindestens ein Kraftstoff")
+    con = db()
+    try:
+        row = alarm_row(con, uid) or {}
+        notify = body.notify if body.notify is not None else row.get("notify")
+        if notify is None:
+            notify = await guess_notify(await person_of(uid), await notify_targets())
+        con.execute("""INSERT INTO alarms(user_id, name, enabled, notify, fuels, place, updated) VALUES(?,?,?,?,?,?,?)
+                       ON CONFLICT(user_id) DO UPDATE SET name=excluded.name, enabled=excluded.enabled, notify=excluded.notify,
+                       fuels=excluded.fuels, place=excluded.place, updated=excluded.updated""",
+                    (uid, uname, int(body.enabled if body.enabled is not None else row.get("enabled", 0)), notify,
+                     ",".join(fuels) if fuels else row.get("fuels", "DIE"), body.place or row.get("place", "here"), int(time.time())))
+        con.commit()
+    finally:
+        con.close()
+    return await alarm_view(request)
+
+
+@app.post("/api/alarm/test")
+async def api_alarm_test(request: Request):
+    """Schickt sofort eine Push mit dem aktuellen Stand – auch wenn es gerade nicht günstig ist."""
+    v = await alarm_view(request)
+    if not v.get("available"):
+        raise HTTPException(400, v.get("reason", "nicht verfügbar"))
+    if not v.get("notify"):
+        raise HTTPException(400, "Kein Handy gewählt")
+    hits = [(f, v["status"][f]) for f in v["fuels"] if v["status"].get(f, {}).get("text")]
+    if not hits:
+        raise HTTPException(400, "Noch keine Preise")
+    con = db()
+    try:
+        person = await person_of(who(request)[0])
+        states = await ha_states()
+        home = next(((s["attributes"].get("latitude"), s["attributes"].get("longitude"))
+                     for s in states if s.get("entity_id") == "zone.home"), (CFG["center_lat"], CFG["center_lon"]))
+        loc, where = alarm_place(person, home, v["place"])
+        full = [(f, cheap_now(con, f, loc, key=("test", f))) for f, _ in hits]
+    finally:
+        con.close()
+    title, message, actions = push_content(full, where)
+    try:
+        await send_push(v["notify"], "Tankalarm-Test (" + ("Zuhause" if where == "Zuhause" else "dein Standort") + ")",
+                        message, actions, tag="spritgrantler_tankalarm_test")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Push fehlgeschlagen: {e}")
+    return {"ok": True, "notify": v["notify"]}
 
 
 # ---------------------------------------------------------------- Sensoren in Home Assistant
@@ -1201,7 +1444,7 @@ FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
 # Sensoren gehen bevorzugt per MQTT-Discovery nach Home Assistant: dann gibt es ein echtes Gerät
 # "Spritgrantler" mit eindeutigen IDs, die Werte bleiben über Neustarts erhalten (retained).
 # Ohne MQTT-Broker wird wie bisher über die REST-API geschrieben.
-APP_VERSION = "1.13.0"
+APP_VERSION = "1.14.0"
 MQTT = {"client": None, "ok": False, "announced": set(), "cleaned": False}
 DISC_PREFIX = "homeassistant"
 BASE_TOPIC = "spritgrantler"

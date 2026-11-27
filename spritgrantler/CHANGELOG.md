@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.14.0 – Persönlicher Tankalarm
+- **Tankalarm direkt in der App:** im Info-Tab ein- und ausschalten, gilt nur für den angemeldeten Benutzer
+- Wahlweise für den **aktuellen Standort** der eigenen Person oder für Zuhause, Diesel, Super oder beide
+- Die Push geht an das eigene Handy, das automatisch über die Tracker der Person erkannt wird
+- **Test-Push** zum Ausprobieren, Status pro Kraftstoff direkt in der Karte
+- Kein Node-RED nötig; der Node-RED-Flow bleibt als Alternative im Info-Tab
+
 ## v1.13.0 – Tankalarm-Flow für Node-RED
 - **Fertiger Node-RED-Flow** im Info-Tab: Handy auswählen, herunterladen oder kopieren, in Node-RED importieren
 - Push, sobald Diesel oder Super um Zuhause gerade günstig ist: höchstens einmal pro Tag und Kraftstoff, nicht in der Nachtruhe, mit Navigationsknopf
