@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.15.0 – Frischere Tankstellen-Details
+- **Tankstellen-Details überarbeitet:** Öffnungsstatus („Geöffnet bis 22:00“), Navigieren und „Hier getankt“ nebeneinander
+- **Letzte 7 Tage auf einen Blick:** Ø Preis, Tiefster und wie oft die Tankstelle unter dem Markt lag
+- Preisverlauf der Tankstelle jetzt **im Vergleich zum Markt-Median**
+- Öffnungszeiten zusammengefasst (z. B. „Mo–So“), heute hervorgehoben
+- Liste zeigt „Geschlossen“ oder „Offen bis …“, wenn eine Tankstelle bald schließt
+- Platzhalter beim Laden der Liste, Stand im Kopf als „vor 4 Min.“
+- Beste Stunden im Statistik-Kopf als „Gute Zeiten“ beschriftet
+
 ## v1.14.0 – Persönlicher Tankalarm
 - **Tankalarm direkt in der App:** im Info-Tab ein- und ausschalten, gilt nur für den angemeldeten Benutzer
 - Wahlweise für den **aktuellen Standort** der eigenen Person oder für Zuhause, Diesel, Super oder beide

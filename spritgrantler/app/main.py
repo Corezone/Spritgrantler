@@ -512,8 +512,25 @@ def api_station(sid: int, fuel: str = "DIE"):
         raise HTTPException(404, "Tankstelle unbekannt")
     hist = [dict(r) for r in con.execute(
         "SELECT price, first_seen, last_seen FROM prices WHERE station_id=? AND fuel=? ORDER BY first_seen", (sid, fuel))]
+    since = int(time.time()) - 7 * 86400
+    market = [[r["ts"], r["median"]] for r in con.execute(
+        "SELECT ts, median FROM rounds WHERE fuel=? AND ts>=? ORDER BY ts", (fuel, since))]
     con.close()
-    return {"id": sid, "name": s["name"], "history": hist}
+    # Kennzahlen der letzten 7 Tage: zeitgewichteter Schnitt, Tiefstwert, Anteil der Runden unter dem Markt
+    recent = [h for h in hist if h["last_seen"] >= since]
+    stats = None
+    if recent:
+        w = [(h["price"], max(60, h["last_seen"] - max(h["first_seen"], since))) for h in recent]
+        avg = sum(p * d for p, d in w) / sum(d for _, d in w)
+        below = seen = 0
+        for ts, med in market:
+            pr = next((h["price"] for h in recent if h["first_seen"] <= ts <= h["last_seen"] + 60), None)
+            if pr is not None:
+                seen += 1
+                below += pr < med
+        stats = {"avg": round(avg, 3), "min": min(h["price"] for h in recent),
+                 "below_market": round(100 * below / seen) if seen else None, "seen_rounds": seen}
+    return {"id": sid, "name": s["name"], "history": hist, "market": market, "stats": stats}
 
 
 @app.get("/api/summary")
@@ -1444,7 +1461,7 @@ FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
 # Sensoren gehen bevorzugt per MQTT-Discovery nach Home Assistant: dann gibt es ein echtes Gerät
 # "Spritgrantler" mit eindeutigen IDs, die Werte bleiben über Neustarts erhalten (retained).
 # Ohne MQTT-Broker wird wie bisher über die REST-API geschrieben.
-APP_VERSION = "1.14.0"
+APP_VERSION = "1.15.0"
 MQTT = {"client": None, "ok": False, "announced": set(), "cleaned": False}
 DISC_PREFIX = "homeassistant"
 BASE_TOPIC = "spritgrantler"

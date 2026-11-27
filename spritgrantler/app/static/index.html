@@ -171,6 +171,7 @@ input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 .hero > :not(.hero-art){position:relative;max-width:calc(100% - 96px)}
 .hero .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;font-weight:600}
 .hero h2{font-size:30px;margin:6px 0 4px}
+.hero .hours em{font-style:normal;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.75;align-self:center;margin-right:2px}
 .hero p{margin:0;opacity:.92;max-width:560px}
 .hero .hours{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
 .hero .hours span{background:rgba(255,255,255,.16);border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600}
@@ -239,6 +240,28 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .kpi-link:hover{border-color:var(--accent)}
 .kpi-link .d{line-height:1.35;margin-top:4px}
 .checks{display:grid;gap:10px;margin:14px 0 4px}
+.st.skel{pointer-events:none}
+.st.skel i{display:block;height:12px;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,var(--neutral) 0%,var(--line) 50%,var(--neutral) 100%);background-size:200% 100%;animation:shimmer 1.3s linear infinite}
+.st.skel .rank{background:var(--neutral);color:transparent}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.st.skel i{animation:none}}
+.det-price{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.open-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;font:600 13px Inter;background:var(--neutral);color:var(--muted)}
+.open-badge i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.open-badge.on{background:var(--good-soft);color:var(--good-ink)}
+.open-badge.off{background:var(--warm-soft);color:var(--bad-ink)}
+.det-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.det-btns .btn{margin-top:0}
+.det-h{margin:24px 0 8px;font-size:16px}
+.det-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.det-kpis div{background:var(--neutral);border-radius:14px;padding:10px 12px}
+.det-kpis label{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+.det-kpis b{font:700 18px "Space Grotesk"}
+.hours-grid{display:grid;gap:2px}
+.hours-grid div{display:flex;justify-content:space-between;padding:8px 12px;border-radius:10px;font-size:14px}
+.hours-grid div span{color:var(--muted)}
+.hours-grid div.today{background:var(--accent-soft)}
+.hours-grid div.today span,.hours-grid div.today b{color:var(--accent-ink)}
 .al-status{display:grid;gap:8px;margin-top:14px}
 .al-status div{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--neutral);font-size:13.5px;line-height:1.45}
 .al-status div.on{background:var(--good-soft);color:var(--good-ink)}
@@ -576,6 +599,10 @@ function priceHTML(p){
   return s.slice(0,-1) + "<sup>" + s.slice(-1) + "</sup>";
 }
 const euro = p => p==null ? "–" : p.toFixed(3).replace(".", ",") + " €";
+function relTime(ts){
+  const m = Math.round((Date.now()/1000 - ts)/60);
+  return m < 1 ? "gerade eben" : m < 60 ? "vor " + m + " Min." : "Stand " + timeStr(ts);
+}
 function ago(ts){
   const m = Math.round((Date.now()/1000 - ts)/60);
   if(m < 1) return "gerade eben";
@@ -656,6 +683,9 @@ function renderList(){
     if(s.fresh && diff === 0) tags.push('<span class="tag good">Am günstigsten</span>');
     if(s.id === nearest.id && S.stations.length > 1) tags.push('<span class="tag">Am nächsten</span>');
     if(!s.fresh) tags.push('<span class="tag warn">Preis älter</span>');
+    const os = openState(s);
+    if(os && !os.open) tags.push('<span class="tag warn">Geschlossen</span>');
+    else if(os && os.soon) tags.push(`<span class="tag warn">${esc(os.label.replace("Geöffnet ", "Offen "))}</span>`);
     return `
     <div class="st ${S.sel===s.id?'sel':''}" data-id="${s.id}" style="animation-delay:${Math.min(i,12)*25}ms">
       <div class="rank">${i+1}</div>
@@ -677,8 +707,10 @@ function selectStation(id, scroll){
 }
 
 let loadSeq = 0;
+const SKELETON = Array.from({length:4}, () => `<div class="st skel"><div class="rank"></div><div class="st-main"><i style="width:60%"></i><i style="width:85%"></i><i style="width:30%"></i></div><div class="price"><i style="width:64px;height:26px"></i></div></div>`).join("");
 async function loadStations(){
   const seq = ++loadSeq;
+  if(!S.stations || !S.stations.length) $("#list").innerHTML = SKELETON;
   try{
     const d = await api(`stations?lat=${S.center[0]}&lon=${S.center[1]}&radius_km=${S.radius}&fuel=${S.fuel}`);
     if(seq !== loadSeq) return;
@@ -687,32 +719,69 @@ async function loadStations(){
   }catch(e){ $("#list").innerHTML = `<div class="empty">Server nicht erreichbar (${esc(e.message)}).</div>`; }
 }
 
+// ---------- Öffnungszeiten ----------
+const DAYS = ["MO","DI","MI","DO","FR","SA","SO"];
+const DAY_LONG = {MO:"Mo",DI:"Di",MI:"Mi",DO:"Do",FR:"Fr",SA:"Sa",SO:"So",FE:"Feiertag"};
+const toMin = t => { const [h,m] = String(t).split(":").map(Number); return h*60 + (m||0); };
+function openState(s){
+  const o = s.opening || []; if(!o.length) return null;
+  const now = new Date(), d = DAYS[(now.getDay()+6)%7], mins = now.getHours()*60 + now.getMinutes();
+  const today = o.filter(x => x.day === d);
+  if(!today.length) return {open:false, label:"Heute geschlossen"};
+  for(const x of today){
+    const a = toMin(x.from), b = toMin(x.to) || 1440;
+    if(a === 0 && b >= 1439) return {open:true, label:"Rund um die Uhr", h24:true};
+    if(mins >= a && mins < b) return {open:true, label:"Geöffnet bis " + x.to, soon: b - mins <= 30};
+  }
+  const next = today.map(x => toMin(x.from)).filter(a => a > mins).sort((a,b)=>a-b)[0];
+  return {open:false, label: next != null ? "Geschlossen · öffnet " + String(Math.floor(next/60)).padStart(2,"0") + ":" + String(next%60).padStart(2,"0") : "Geschlossen"};
+}
+function hoursGrouped(s){
+  const o = s.opening || [], today = DAYS[(new Date().getDay()+6)%7];
+  const txt = d => o.filter(x => x.day === d).map(x => x.from + "–" + x.to).join(", ") || "geschlossen";
+  const groups = [];
+  DAYS.forEach(d => { const t = txt(d), g = groups.at(-1); if(g && g.t === t){ g.days.push(d); } else groups.push({t, days:[d]}); });
+  const rows = groups.map(g => { const lbl = g.days.length > 1 ? DAY_LONG[g.days[0]] + "–" + DAY_LONG[g.days.at(-1)] : DAY_LONG[g.days[0]];
+    return `<div class="${g.days.includes(today) ? "today" : ""}"><span>${lbl}</span><b>${esc(g.t.replace("00:00–24:00","rund um die Uhr"))}</b></div>`; });
+  if(o.some(x => x.day === "FE")) rows.push(`<div><span>Feiertag</span><b>${esc(txt("FE"))}</b></div>`);
+  return rows.join("");
+}
+
 // ---------- Detail ----------
 async function openStation(id){
   const s = S.stations.find(x => x.id === id); if(!s) return;
   S.sel = id; renderMarkers();
-  const days = ["MO","DI","MI","DO","FR","SA","SO","FE"];
-  const oh = (s.opening||[]).slice().sort((a,b)=>days.indexOf(a.day)-days.indexOf(b.day))
-    .map(o => `<span>${esc(o.label||o.day)}</span><b>${esc(o.from)}–${esc(o.to)}</b>`).join("");
+  const os = openState(s);
   $("#box").innerHTML = `
     <div class="box-head"><h2>${esc(s.name)}</h2><button class="close" onclick="closeModal()" aria-label="Schließen"><svg class="i"><use href="#i-x"/></svg></button></div>
     <div class="st-sub" style="white-space:normal">${esc(s.address)}, ${esc(s.postal)} ${esc(s.city)} · ${km(s.dist_km)}</div>
-    <div class="big-price">${priceHTML(s.price)}<span style="font-size:18px;color:var(--muted)"> €/l</span></div>
-    <div class="st-sub" style="white-space:normal">${FUEL_NAME[S.fuel]} · zuletzt gesehen ${ago(s.seen)} · Preis gilt seit ${timeStr(s.since)}</div>
-    <a class="btn primary" href="${navUrl(s)}" target="_blank" rel="noopener"><svg class="i"><use href="#i-nav"/></svg>In Google Maps navigieren</a>
-    <button class="btn secondary" onclick="openFillForm(${s.id})"><svg class="i"><use href="#i-fuel"/></svg>Ich war hier tanken</button>
-    <h3 style="margin:22px 0 4px;font-size:16px">Preisverlauf dieser Tankstelle</h3>
-    <div class="st-sub">Letzte 7 Tage. Lücken: Die Tankstelle war nicht unter den günstigsten.</div>
-    <div class="chart" id="cStation" style="margin-top:10px"><div class="empty">Lade…</div></div>
-    ${oh ? `<h3 style="margin:20px 0 4px;font-size:16px">Öffnungszeiten</h3><div class="hours-list">${oh}</div>` : ""}`;
+    <div class="det-price">
+      <div class="big-price">${priceHTML(s.price)}<span style="font-size:18px;color:var(--muted)"> €/l</span></div>
+      ${os ? `<span class="open-badge ${os.open ? "on" : "off"}"><i></i>${esc(os.label)}</span>` : ""}
+    </div>
+    <div class="st-sub" style="white-space:normal">${FUEL_NAME[S.fuel]} · Preis gilt seit ${timeStr(s.since)} · zuletzt gesehen ${ago(s.seen)}</div>
+    <div class="det-btns">
+      <a class="btn primary" href="${navUrl(s)}" target="_blank" rel="noopener"><svg class="i"><use href="#i-nav"/></svg>Navigieren</a>
+      <button class="btn secondary" onclick="openFillForm(${s.id})"><svg class="i"><use href="#i-fuel"/></svg>Hier getankt</button>
+    </div>
+    <h3 class="det-h">Letzte 7 Tage</h3>
+    <div class="det-kpis" id="detKpis"><div><label>Ø Preis</label><b>…</b></div><div><label>Tiefster</label><b>…</b></div><div><label>Unter Markt</label><b>…</b></div></div>
+    <div class="chart" id="cStation" style="margin-top:6px"><div class="empty">Lade…</div></div>
+    <div class="legend" style="margin-top:2px"><span><i style="background:var(--data)"></i>Diese Tankstelle</span><span><i style="background:var(--warm);height:0;border-top:2px dashed var(--warm)"></i>Markt (Median)</span></div>
+    <div class="st-sub" style="white-space:normal;margin-top:4px">Lücken: Die Tankstelle war in dieser Zeit nicht unter den günstigsten.</div>
+    ${(s.opening||[]).length ? `<h3 class="det-h">Öffnungszeiten</h3><div class="hours-grid">${hoursGrouped(s)}</div>` : ""}`;
   $("#modal").classList.add("on");
   try{
     const d = await api(`station/${id}?fuel=${S.fuel}`);
     const pts = [];
     const since = Date.now()/1000 - 7*86400; let prevEnd = null;
     d.history.filter(h => h.last_seen >= since).forEach(h => { pts.push({t:Math.max(h.first_seen, since), v:h.price, brk: prevEnd!==null && h.first_seen - prevEnd > 3600}); pts.push({t:h.last_seen, v:h.price}); prevEnd = h.last_seen; });
-    lineChart($("#cStation"), [{pts, color:"var(--data)", name:"Preis", step:true}], {h:180});
-  }catch(e){ $("#cStation").innerHTML = '<div class="empty">Kein Verlauf verfügbar.</div>'; }
+    const mk = (d.market||[]).map(([t,v]) => ({t, v}));
+    lineChart($("#cStation"), [{pts:mk, color:"var(--warm)", name:"Markt", dash:true}, {pts, color:"var(--data)", name:"Preis", step:true}], {h:190});
+    const st = d.stats;
+    $("#detKpis").innerHTML = st ? `<div><label>Ø Preis</label><b>${priceHTML(st.avg)}</b></div><div><label>Tiefster</label><b>${priceHTML(st.min)}</b></div>
+      <div><label>Unter Markt</label><b>${st.below_market == null ? "–" : st.below_market + " %"}</b></div>` : '<div style="grid-column:1/-1" class="st-sub">Noch kein Verlauf.</div>';
+  }catch(e){ $("#cStation").innerHTML = '<div class="empty">Kein Verlauf verfügbar.</div>'; $("#detKpis").innerHTML = ""; }
 }
 function closeModal(){ $("#modal").classList.remove("on"); }
 $("#modal").addEventListener("click", e => { if(e.target.id === "modal") closeModal(); });
@@ -875,7 +944,7 @@ async function loadStats(){
     $("#heroEyebrow").textContent = `${FUEL_NAME[S.fuel]} · Beste Tankzeit` + (r.learning ? " · lernt noch" : "");
     $("#heroTitle").textContent = r.title;
     $("#heroText").textContent = r.text;
-    $("#heroHours").innerHTML = (r.best_hours||[]).sort((a,b)=>a-b).map(h => `<span>${h}–${h+1} Uhr</span>`).join("") + (r.learning ? `<span>${sum.full_days} von 3 Tagen gesammelt</span>` : "");
+    $("#heroHours").innerHTML = ((r.best_hours||[]).length ? '<em>Gute Zeiten</em>' : "") + (r.best_hours||[]).sort((a,b)=>a-b).map(h => `<span>${h}–${h+1} Uhr</span>`).join("") + (r.learning ? `<span>${sum.full_days} von 3 Tagen gesammelt</span>` : "");
     const [d1, c1] = centDiff(sum.median, sum.median_24h_ago);
     const [d2, c2] = centDiff(sum.median, sum.week_median);
     const per = st.period || {};
@@ -1203,7 +1272,7 @@ async function loadInfo(){
 async function refreshStatus(){
   try{
     const d = await api("info");
-    $("#status").innerHTML = `<span class="live-dot"></span>${d.demo ? "Demo · " : "Live · "}${d.last_round ? "Stand " + timeStr(d.last_round) : "sammelt…"}`;
+    $("#status").innerHTML = `<span class="live-dot"></span>${d.demo ? "Demo · " : "Live · "}${d.last_round ? relTime(d.last_round) : "sammelt…"}`;
   }catch(e){ $("#status").textContent = "offline"; }
 }
 
