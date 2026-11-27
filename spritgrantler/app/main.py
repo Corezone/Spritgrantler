@@ -1461,7 +1461,7 @@ FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
 # Sensoren gehen bevorzugt per MQTT-Discovery nach Home Assistant: dann gibt es ein echtes Gerät
 # "Spritgrantler" mit eindeutigen IDs, die Werte bleiben über Neustarts erhalten (retained).
 # Ohne MQTT-Broker wird wie bisher über die REST-API geschrieben.
-APP_VERSION = "1.15.0"
+APP_VERSION = "1.16.0"
 MQTT = {"client": None, "ok": False, "announced": set(), "cleaned": False}
 DISC_PREFIX = "homeassistant"
 BASE_TOPIC = "spritgrantler"

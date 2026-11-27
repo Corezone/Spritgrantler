@@ -144,7 +144,6 @@ input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
 .st:hover,.st.sel{background:var(--bg)}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .rank{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font:600 14px "Space Grotesk";background:var(--neutral);color:var(--muted);flex:none}
-.st:first-child .rank{background:var(--accent);color:#fff}
 .st-main{flex:1;min-width:0}
 .st-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-sub{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -245,6 +244,38 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .st.skel .rank{background:var(--neutral);color:transparent}
 @keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.st.skel i{animation:none}}
+.best-card{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;margin:2px 2px 12px;padding:18px 18px 16px;border-radius:var(--r-lg);color:#fff;cursor:pointer;
+  background:linear-gradient(135deg,#243444 0%,#3E5468 55%,#5F87A8 100%);box-shadow:0 10px 26px rgba(46,64,82,.28);animation:rise .35s ease both}
+.best-card::after{content:"";position:absolute;right:-40px;bottom:-60px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(127,182,224,.35),transparent 70%)}
+.bc-main{flex:1;min-width:0;position:relative;z-index:1}
+.bc-eyebrow{font:600 11px Inter;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+.bc-price{font:700 40px/1.05 "Space Grotesk";margin:4px 0 2px;letter-spacing:-.02em}
+.bc-price span{font:500 15px Inter;opacity:.7;margin-left:6px;letter-spacing:0}
+.bc-name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bc-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.bc-meta span{background:rgba(255,255,255,.15);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+.bc-nav{position:relative;z-index:1;flex:none;width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:#fff;color:#243444;box-shadow:0 6px 16px rgba(0,0,0,.18);transition:transform .15s}
+.bc-nav:active{transform:scale(.94)}
+.rank.r1{background:var(--accent);color:#fff}
+.rank.r2,.rank.r3{background:var(--accent-soft);color:var(--accent-ink)}
+.view.on{animation:viewIn .22s ease both}
+@keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#v-map.view.on{animation:none}
+@media (hover:hover) and (pointer:fine){
+  .card.panel,.kpi{transition:transform .18s ease, box-shadow .18s ease}
+  .card.panel:hover,.kpi:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(21,25,30,.05),0 14px 34px rgba(21,25,30,.11)}
+  .best-card{transition:transform .18s ease}
+  .best-card:hover{transform:translateY(-2px)}
+}
+@media (prefers-reduced-motion:reduce){.view.on,.best-card{animation:none}}
+@media (max-width:899px){
+  .best-card{padding:13px 14px 12px;gap:10px;margin-bottom:8px}
+  .bc-price{font-size:32px;margin:2px 0 0}
+  .bc-name{font-size:14px}
+  .bc-meta{gap:5px;margin-top:6px;flex-wrap:nowrap;overflow:hidden}
+  .bc-meta span{padding:3px 8px;font-size:11.5px;white-space:nowrap}
+  .bc-nav{width:46px;height:46px;border-radius:14px}
+}
 .det-price{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .open-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;font:600 13px Inter;background:var(--neutral);color:var(--muted)}
 .open-badge i{width:8px;height:8px;border-radius:50%;background:currentColor}
@@ -676,11 +707,27 @@ function renderList(){
   }
   const minP = Math.min(...S.stations.filter(s => s.fresh).map(s => s.price));
   const nearest = S.stations.reduce((a,b) => b.dist_km < a.dist_km ? b : a);
-  L_.innerHTML = S.stations.map((s,i) => {
+  const fr = S.stations.filter(s => s.fresh), best = fr[0];
+  let top = "";
+  if(best && fr.length > 1){
+    const avg = fr.reduce((a,s) => a + s.price, 0) / fr.length, save = (avg - best.price) * 100;
+    const os = openState(best);
+    top = `<div class="best-card" data-id="${best.id}">
+      <div class="bc-main">
+        <div class="bc-eyebrow">Bestpreis im Umkreis</div>
+        <div class="bc-price">${priceHTML(best.price)}<span>€/l</span></div>
+        <div class="bc-name">${esc(best.name)}</div>
+        <div class="bc-meta"><span>${km(best.dist_km)}</span>${save >= 0.1 ? `<span>${save.toFixed(1).replace(".", ",")} ct unter dem Schnitt</span>` : ""}${os && (!os.open || os.soon || innerWidth >= 900) && !os.h24 ? `<span>${esc(os.label)}</span>` : ""}</div>
+      </div>
+      <a class="bc-nav" href="${navUrl(best)}" target="_blank" rel="noopener" aria-label="Navigation starten" onclick="event.stopPropagation()"><svg class="i"><use href="#i-nav"/></svg></a>
+    </div>`;
+  }
+  L_.innerHTML = top + S.stations.map((s,i) => {
+    if(top && s.id === best.id) return "";
     const diff = isFinite(minP) ? Math.round((s.price - minP)*1000)/10 : null;
     const diffTxt = !s.fresh ? ago(s.seen) : diff === 0 || diff == null ? "Bestpreis" : "+" + diff.toFixed(1).replace(".", ",") + " ct";
     const tags = [`<span class="tag">${km(s.dist_km)}</span>`];
-    if(s.fresh && diff === 0) tags.push('<span class="tag good">Am günstigsten</span>');
+    if(s.fresh && diff === 0 && !top) tags.push('<span class="tag good">Am günstigsten</span>');
     if(s.id === nearest.id && S.stations.length > 1) tags.push('<span class="tag">Am nächsten</span>');
     if(!s.fresh) tags.push('<span class="tag warn">Preis älter</span>');
     const os = openState(s);
@@ -688,7 +735,7 @@ function renderList(){
     else if(os && os.soon) tags.push(`<span class="tag warn">${esc(os.label.replace("Geöffnet ", "Offen "))}</span>`);
     return `
     <div class="st ${S.sel===s.id?'sel':''}" data-id="${s.id}" style="animation-delay:${Math.min(i,12)*25}ms">
-      <div class="rank">${i+1}</div>
+      <div class="rank${s.fresh && i < 3 ? " r" + (i+1) : ""}">${i+1}</div>
       <div class="st-main">
         <div class="st-name">${esc(s.name)}</div>
         <div class="st-sub">${esc(s.address)}${s.city ? ", " + esc(s.city) : ""}</div>
@@ -697,7 +744,7 @@ function renderList(){
       <div class="price">${priceHTML(s.price)}<small class="${diff > 0 && s.fresh ? "up" : ""}">${diffTxt}</small></div>
       <a class="nav-btn" href="${navUrl(s)}" target="_blank" rel="noopener" aria-label="Navigation starten" onclick="event.stopPropagation()"><svg class="i"><use href="#i-nav"/></svg></a>
     </div>`; }).join("");
-  L_.querySelectorAll(".st").forEach(el => el.addEventListener("click", () => openStation(+el.dataset.id)));
+  L_.querySelectorAll(".st, .best-card").forEach(el => el.addEventListener("click", () => openStation(+el.dataset.id)));
 }
 
 function selectStation(id, scroll){

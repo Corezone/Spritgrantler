@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.16.0 – Bestpreis-Karte
+- **Bestpreis-Karte** oben in der Liste: großer Preis, Tankstelle, Ersparnis gegenüber dem Schnitt im Umkreis und Navigieren mit einem Tipp
+- Plätze 2 und 3 dezent hervorgehoben
+- Weiche Übergänge beim Wechsel zwischen Karte, Tanken, Statistik und Info
+- Karten heben sich am Desktop beim Darüberfahren leicht ab
+
 ## v1.15.0 – Frischere Tankstellen-Details
 - **Tankstellen-Details überarbeitet:** Öffnungsstatus („Geöffnet bis 22:00“), Navigieren und „Hier getankt“ nebeneinander
 - **Letzte 7 Tage auf einen Blick:** Ø Preis, Tiefster und wie oft die Tankstelle unter dem Markt lag
