@@ -56,6 +56,10 @@ docker compose up -d --build
 
 Bei ganz Österreich, 30 Minuten Intervall und 90 Tagen Speicherung bleibt die Datenbank bei etwa 80–130 MB. Nur Wien liegt bei etwa 15–30 MB.
 
+## Tankalarm mit Node-RED
+
+Im Tab **Info** gibt es einen fertigen Node-RED-Flow, der eine Push-Nachricht schickt, sobald Tanken um Zuhause gerade günstig ist. Handy auswählen, herunterladen, in Node-RED importieren und in den Home-Assistant-Nodes den Server wählen. Die ausführliche Anleitung steht in [`spritgrantler/DOCS.md`](spritgrantler/DOCS.md) und in Home Assistant im Tab „Dokumentation“ der App. Für Docker liegt die Vorlage unter [`nodered/spritgrantler-tankalarm.json`](nodered/spritgrantler-tankalarm.json).
+
 ## Sensoren in Home Assistant
 
 Die App meldet sich per MQTT-Discovery als Gerät **Spritgrantler** in Home Assistant an, sobald der Mosquitto-Broker installiert ist – ohne weitere Einrichtung. Ohne Broker schreibt sie die Sensoren direkt über die API. Nach jeder Sammelrunde werden diese Sensoren aktualisiert (Diesel und Super):

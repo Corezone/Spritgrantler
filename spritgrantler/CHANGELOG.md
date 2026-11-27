@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.13.0 – Tankalarm-Flow für Node-RED
+- **Fertiger Node-RED-Flow** im Info-Tab: Handy auswählen, herunterladen oder kopieren, in Node-RED importieren
+- Push, sobald Diesel oder Super um Zuhause gerade günstig ist: höchstens einmal pro Tag und Kraftstoff, nicht in der Nachtruhe, mit Navigationsknopf
+- Anleitung im Tab **Dokumentation** der App, was nach dem Import zu ändern ist
+- Neues Attribut `app_path` an den Sensoren für Links in Push-Nachrichten
+- Vorlage für Docker unter `nodered/spritgrantler-tankalarm.json`
+
 ## v1.12.0 – Alarm, wenn es gerade günstig ist
 - **Neue Sensoren** `binary_sensor.spritgrantler_diesel_jetzt_guenstig` und `binary_sensor.spritgrantler_super_jetzt_guenstig`
 - Schalten ein, wenn die günstigste Tankstelle in 5 km um Zuhause so billig ist wie selten in den letzten 14 Tagen (höchstens 15 % der Zeit war es günstiger, mindestens 1 ct unter dem Schnitt)

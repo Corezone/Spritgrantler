@@ -239,6 +239,13 @@ table.data th:first-child,table.data td:first-child{text-align:left}
 .kpi-link:hover{border-color:var(--accent)}
 .kpi-link .d{line-height:1.35;margin-top:4px}
 .checks{display:grid;gap:10px;margin:14px 0 4px}
+.na-pick{font:500 16px Inter;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:0 14px;height:52px;background:var(--surface);width:100%;margin:4px 0 12px}
+.na-btns{display:flex;gap:10px;flex-wrap:wrap}
+.na-btns .btn{flex:1;min-width:160px;margin-top:0;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px}
+.steps{margin:14px 0 2px;padding:0;list-style:none;counter-reset:st;display:grid;gap:10px}
+.steps li{counter-increment:st;display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45}
+.steps li::before{content:counter(st);flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font:700 13px/26px "Space Grotesk";text-align:center}
+.steps code{font:500 12.5px ui-monospace,monospace;background:var(--neutral);padding:1px 5px;border-radius:6px}
 .checks label{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:16px;cursor:pointer}
 .checks input{width:22px;height:22px;margin:1px 0 0;accent-color:var(--warm);flex:none}
 .checks b{display:block;font-weight:600}
@@ -458,6 +465,23 @@ table.data th:first-child,table.data td:first-child{text-align:left}
             <div><h3>Darstellung</h3><div class="st-sub" style="white-space:normal">Automatisch folgt der Einstellung deines Geräts</div></div>
             <div class="seg small" id="themeSeg"><button data-t="auto">Auto</button><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></div>
           </div>
+        </div>
+        <div class="stats-head" style="margin-top:22px"><h2>Tankalarm</h2></div>
+        <div class="card panel" id="naCard">
+          <h3>Push, wenn Tanken günstig ist</h3>
+          <div class="sub" style="white-space:normal">Fertiger Node-RED-Flow: meldet sich, sobald Diesel oder Super in 5 km um Zuhause so günstig ist wie selten in den letzten 14 Tagen. Höchstens einmal pro Tag und nicht in der Nacht.</div>
+          <label class="st-sub" for="naTarget">Push an</label>
+          <select class="na-pick" id="naTarget"><option value="">Später in Node-RED eintragen</option></select>
+          <div class="na-btns">
+            <a class="btn secondary" id="naDl" href="api/nodered/tankalarm.json" download="spritgrantler-tankalarm.json">Flow herunterladen</a>
+            <button class="btn secondary" id="naCopy">In Zwischenablage kopieren</button>
+          </div>
+          <ol class="steps">
+            <li><span>In Node-RED rechts oben ☰ → <b>Importieren</b>, Datei wählen oder einfügen, <b>Importieren</b>.</span></li>
+            <li><span>In den Nodes <b>Diesel günstig</b>, <b>Super günstig</b>, <b>Diesel</b>, <b>Super</b> und <b>Push Handy</b> per Doppelklick deinen Home-Assistant-<b>Server</b> wählen.</span></li>
+            <li><span>Kein Handy oben gewählt? Dann im Node <b>Push Handy</b> bei <b>Action</b> deinen Dienst eintragen, z. B. <code>notify.mobile_app_mein_handy</code>.</span></li>
+            <li><span><b>Deploy</b>, dann in der Gruppe <b>Test</b> auf <b>Jetzt senden</b>. Nur ein Kraftstoff oder andere Nachtruhe: ganz oben im Node <b>Logik</b>.</span></li>
+          </ol>
         </div>
         <div class="stats-head" style="margin-top:22px"><h2>System</h2></div>
         <div class="card rows" id="infoRows"></div>
@@ -1058,7 +1082,30 @@ document.querySelectorAll("#themeSeg button").forEach(b => { b.classList.toggle(
 })();
 
 // ---------- Info ----------
+// ---------- Tankalarm-Flow für Node-RED ----------
+function naUrl(){ const t = $("#naTarget").value; return "api/nodered/tankalarm.json" + (t ? "?notify=" + encodeURIComponent(t) : ""); }
+$("#naTarget").addEventListener("change", () => { $("#naDl").href = naUrl(); store.set("naTarget", $("#naTarget").value); });
+$("#naCopy").addEventListener("click", async () => {
+  const b = $("#naCopy"), old = b.textContent;
+  try{
+    const txt = await fetch(naUrl() + (naUrl().includes("?") ? "&" : "?") + "download=false").then(r => r.text());
+    await navigator.clipboard.writeText(txt);
+    b.textContent = "Kopiert";
+  }catch(e){ b.textContent = "Kopieren nicht möglich – bitte herunterladen"; }
+  setTimeout(() => b.textContent = old, 2200);
+});
+async function loadNotifyTargets(){
+  try{
+    const {targets} = await api("nodered/notify_targets");
+    const sel = $("#naTarget"), keep = store.get("naTarget", "");
+    targets.forEach(t => { const o = document.createElement("option"); o.value = t; o.textContent = t; sel.appendChild(o); });
+    if(targets.includes(keep)) sel.value = keep; else if(targets.length === 1) sel.value = targets[0];
+    $("#naDl").href = naUrl();
+  }catch(e){}
+}
+
 async function loadInfo(){
+  if(!S.naLoaded){ S.naLoaded = true; loadNotifyTargets(); }
   try{
     const d = await api("info");
     const mb = (d.db_bytes/1048576).toFixed(1).replace(".", ",");

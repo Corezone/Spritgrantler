@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from app.nodered import tankalarm_flow
+
 log = logging.getLogger("spritgrantler")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -1070,6 +1072,33 @@ async def api_daily_tip(fuel: str = "DIE", lat: float | None = None, lon: float 
         con.close()
 
 
+@app.get("/api/nodered/notify_targets")
+async def api_notify_targets():
+    """Push-Dienste der Companion-App (notify.mobile_app_*) zur Auswahl im Info-Tab."""
+    if not SUP_TOKEN:
+        return {"targets": []}
+    try:
+        r = await client().get(f"{HA_API}/services", headers={"Authorization": f"Bearer {SUP_TOKEN}"})
+        r.raise_for_status()
+        out = []
+        for d in r.json():
+            if d.get("domain") == "notify":
+                out += [f"notify.{k}" for k in d.get("services", {}) if k.startswith("mobile_app_")]
+        return {"targets": sorted(out)}
+    except Exception as e:  # noqa: BLE001
+        log.warning("Push-Dienste nicht lesbar: %s", e)
+        return {"targets": []}
+
+
+@app.get("/api/nodered/tankalarm.json")
+def api_nodered_tankalarm(notify: str | None = None, download: bool = True):
+    if notify and not (notify.replace("notify.", "", 1).replace("_", "").isalnum()):
+        raise HTTPException(400, "Ungültiger Push-Dienst")
+    body = json.dumps(tankalarm_flow(notify), ensure_ascii=False, indent=1)
+    headers = {"Content-Disposition": 'attachment; filename="spritgrantler-tankalarm.json"'} if download else {}
+    return Response(body, media_type="application/json", headers=headers)
+
+
 @app.get("/api/cheap_now")
 async def api_cheap_now(fuel: str = "DIE"):
     fuel = check_fuel(fuel)
@@ -1172,7 +1201,7 @@ FUEL_LABEL = {"DIE": "Diesel", "SUP": "Super 95"}
 # Sensoren gehen bevorzugt per MQTT-Discovery nach Home Assistant: dann gibt es ein echtes Gerät
 # "Spritgrantler" mit eindeutigen IDs, die Werte bleiben über Neustarts erhalten (retained).
 # Ohne MQTT-Broker wird wie bisher über die REST-API geschrieben.
-APP_VERSION = "1.12.0"
+APP_VERSION = "1.13.0"
 MQTT = {"client": None, "ok": False, "announced": set(), "cleaned": False}
 DISC_PREFIX = "homeassistant"
 BASE_TOPIC = "spritgrantler"
@@ -1329,10 +1358,12 @@ async def publish_ha_sensors():
             tip = daily_tip(con, fuel, now, home)
             await ha_set(f"sensor.spritgrantler_{slug}_tagestipp", tip["title"][:250],
                          {"friendly_name": f"Spritgrantler {label} Tagestipp", "icon": "mdi:calendar-clock",
+                          **({"app_path": f"/hassio/ingress/{addon_slug()}"} if addon_slug() else {}),
                           **{k: v for k, v in tip.items() if k != "title"}, "updated": stamp})
             ch = cheap_now(con, fuel, home)
+            app_path = {"app_path": f"/hassio/ingress/{addon_slug()}"} if addon_slug() else {}
             await ha_set(f"binary_sensor.spritgrantler_{slug}_jetzt_guenstig", ch["on"],
-                         {"friendly_name": f"Spritgrantler {label} jetzt günstig", "icon": "mdi:piggy-bank-outline",
+                         {"friendly_name": f"Spritgrantler {label} jetzt günstig", "icon": "mdi:piggy-bank-outline", **app_path,
                           **{k: v for k, v in ch.items() if k != "on"}, "updated": stamp})
             await ha_set(f"sensor.spritgrantler_{slug}_empfehlung", rec["title"],
                          {"friendly_name": f"Spritgrantler {label} Empfehlung", "icon": "mdi:clock-check-outline",

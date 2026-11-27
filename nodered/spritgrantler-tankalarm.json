@@ -1,0 +1,384 @@
+[
+ {
+  "id": "spritgrantler_ta_grp",
+  "type": "group",
+  "z": "",
+  "name": "Tankalarm",
+  "style": {
+   "fill": "#dff3f3",
+   "label": true
+  },
+  "nodes": [
+   "spritgrantler_ta_ev_die",
+   "spritgrantler_ta_ev_sup",
+   "spritgrantler_ta_in_7",
+   "spritgrantler_ta_cs_die",
+   "spritgrantler_ta_cs_sup",
+   "spritgrantler_ta_fn",
+   "spritgrantler_ta_push",
+   "spritgrantler_ta_dbg",
+   "spritgrantler_ta_info"
+  ],
+  "x": 34,
+  "y": 39,
+  "w": 772,
+  "h": 262
+ },
+ {
+  "id": "spritgrantler_ta_ev_die",
+  "type": "server-state-changed",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Diesel günstig",
+  "server": "",
+  "version": 6,
+  "outputs": 2,
+  "exposeAsEntityConfig": "",
+  "entities": {
+   "entity": [
+    "binary_sensor.spritgrantler_diesel_jetzt_guenstig"
+   ],
+   "substring": [],
+   "regex": []
+  },
+  "outputInitially": false,
+  "stateType": "str",
+  "ifState": "on",
+  "ifStateType": "str",
+  "ifStateOperator": "is",
+  "outputOnlyOnStateChange": true,
+  "for": "0",
+  "forType": "num",
+  "forUnits": "minutes",
+  "ignorePrevStateNull": false,
+  "ignorePrevStateUnknown": false,
+  "ignorePrevStateUnavailable": false,
+  "ignoreCurrentStateUnknown": true,
+  "ignoreCurrentStateUnavailable": true,
+  "outputProperties": [
+   {
+    "property": "payload",
+    "propertyType": "msg",
+    "value": "",
+    "valueType": "entityState"
+   },
+   {
+    "property": "data",
+    "propertyType": "msg",
+    "value": "",
+    "valueType": "eventData"
+   }
+  ],
+  "x": 150,
+  "y": 80,
+  "wires": [
+   [
+    "spritgrantler_ta_cs_die"
+   ],
+   []
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_ev_sup",
+  "type": "server-state-changed",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Super günstig",
+  "server": "",
+  "version": 6,
+  "outputs": 2,
+  "exposeAsEntityConfig": "",
+  "entities": {
+   "entity": [
+    "binary_sensor.spritgrantler_super_jetzt_guenstig"
+   ],
+   "substring": [],
+   "regex": []
+  },
+  "outputInitially": false,
+  "stateType": "str",
+  "ifState": "on",
+  "ifStateType": "str",
+  "ifStateOperator": "is",
+  "outputOnlyOnStateChange": true,
+  "for": "0",
+  "forType": "num",
+  "forUnits": "minutes",
+  "ignorePrevStateNull": false,
+  "ignorePrevStateUnknown": false,
+  "ignorePrevStateUnavailable": false,
+  "ignoreCurrentStateUnknown": true,
+  "ignoreCurrentStateUnavailable": true,
+  "outputProperties": [
+   {
+    "property": "payload",
+    "propertyType": "msg",
+    "value": "",
+    "valueType": "entityState"
+   },
+   {
+    "property": "data",
+    "propertyType": "msg",
+    "value": "",
+    "valueType": "eventData"
+   }
+  ],
+  "x": 150,
+  "y": 140,
+  "wires": [
+   [
+    "spritgrantler_ta_cs_die"
+   ],
+   []
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_in_7",
+  "type": "inject",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "7 Uhr",
+  "props": [],
+  "repeat": "",
+  "crontab": "00 07 * * *",
+  "once": false,
+  "onceDelay": 0.1,
+  "topic": "",
+  "x": 150,
+  "y": 200,
+  "wires": [
+   [
+    "spritgrantler_ta_cs_die"
+   ]
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_cs_die",
+  "type": "api-current-state",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Diesel",
+  "server": "",
+  "version": 3,
+  "outputs": 1,
+  "halt_if": "",
+  "halt_if_type": "str",
+  "halt_if_compare": "is",
+  "entity_id": "binary_sensor.spritgrantler_diesel_jetzt_guenstig",
+  "state_type": "str",
+  "blockInputOverrides": true,
+  "outputProperties": [
+   {
+    "property": "diesel",
+    "propertyType": "msg",
+    "value": "",
+    "valueType": "entity"
+   }
+  ],
+  "for": "0",
+  "forType": "num",
+  "forUnits": "minutes",
+  "override_topic": false,
+  "state_location": "payload",
+  "override_payload": "msg",
+  "entity_location": "data",
+  "override_data": "msg",
+  "x": 400,
+  "y": 80,
+  "wires": [
+   [
+    "spritgrantler_ta_cs_sup"
+   ]
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_cs_sup",
+  "type": "api-current-state",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Super",
+  "server": "",
+  "version": 3,
+  "outputs": 1,
+  "halt_if": "",
+  "halt_if_type": "str",
+  "halt_if_compare": "is",
+  "entity_id": "binary_sensor.spritgrantler_super_jetzt_guenstig",
+  "state_type": "str",
+  "blockInputOverrides": true,
+  "outputProperties": [
+   {
+    "property": "super",
+    "propertyType": "msg",
+    "value": "",
+    "valueType": "entity"
+   }
+  ],
+  "for": "0",
+  "forType": "num",
+  "forUnits": "minutes",
+  "override_topic": false,
+  "state_location": "payload",
+  "override_payload": "msg",
+  "entity_location": "data",
+  "override_data": "msg",
+  "x": 400,
+  "y": 140,
+  "wires": [
+   [
+    "spritgrantler_ta_fn"
+   ]
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_fn",
+  "type": "function",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Logik",
+  "func": "// Spritgrantler Tankalarm\n// Hier anpassen:\nconst KRAFTSTOFFE = [\"Diesel\", \"Super\"];   // nur einen Alarm? z. B. [\"Diesel\"]\nconst VON = 7, BIS = 21;                   // Nachtruhe: vor VON und ab BIS Uhr kommt nichts\n\nconst heute = new Date().toLocaleDateString(\"de-AT\");\nconst gesendet = flow.get(\"tankalarm_gesendet\") || {};\n\nif (msg.reset) {\n  flow.set(\"tankalarm_gesendet\", {});\n  node.status({ fill: \"grey\", shape: \"ring\", text: \"zurückgesetzt\" });\n  return null;\n}\n\nconst stunde = new Date().getHours();\nif (!msg.test && (stunde < VON || stunde >= BIS)) {\n  node.status({ fill: \"yellow\", shape: \"ring\", text: \"Nachtruhe\" });\n  return null;\n}\n\nconst ARTEN = [{ name: \"Diesel\", e: msg.diesel }, { name: \"Super\", e: msg.super }]\n  .filter(a => KRAFTSTOFFE.includes(a.name));\nconst treffer = ARTEN.filter(a => a.e && a.e.attributes && a.e.attributes.text &&\n  (msg.test || (a.e.state === \"on\" && gesendet[a.name] !== heute)));\nif (!treffer.length) {\n  node.status({ fill: \"grey\", shape: \"dot\", text: \"nichts zu melden\" });\n  return null;\n}\n\nconst knoepfe = [];\nconst navs = treffer.filter(a => a.e.attributes.navigation);\nif (navs.length === 2 && navs[0].e.attributes.station === navs[1].e.attributes.station) {\n  knoepfe.push({ action: \"URI\", title: \"Navigieren\", uri: navs[0].e.attributes.navigation });\n} else {\n  for (const a of navs) knoepfe.push({ action: \"URI\", title: a.name + \" navigieren\", uri: a.e.attributes.navigation });\n}\n\nif (!msg.test) {\n  for (const a of treffer) gesendet[a.name] = heute;\n  flow.set(\"tankalarm_gesendet\", gesendet);\n}\n\nconst app = treffer[0].e.attributes.app_path;\nmsg.payload = {\n  data: {\n    title: treffer.length === 2 ? \"Diesel und Super gerade günstig\" : treffer[0].name + \" gerade günstig\",\n    message: treffer.map(a => a.name + \": \" + a.e.attributes.text).join(\"\\n\\n\"),\n    data: Object.assign({\n      tag: \"spritgrantler_tankalarm\",\n      group: \"spritgrantler\",\n      channel: \"Tankalarm\",\n      importance: \"high\",\n      notification_icon: \"mdi:piggy-bank-outline\",\n      actions: knoepfe\n    }, app ? { clickAction: app, url: app } : {})\n  }\n};\nnode.status({ fill: \"green\", shape: \"dot\", text: treffer.map(a => a.name).join(\" + \") + \" \" +\n  new Date().toLocaleTimeString(\"de-AT\", { hour: \"2-digit\", minute: \"2-digit\" }) });\nreturn msg;",
+  "outputs": 1,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 400,
+  "y": 260,
+  "wires": [
+   [
+    "spritgrantler_ta_push",
+    "spritgrantler_ta_dbg"
+   ]
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_push",
+  "type": "api-call-service",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Push Handy",
+  "server": "",
+  "version": 7,
+  "debugenabled": false,
+  "action": "notify.mobile_app_DEIN_HANDY",
+  "floorId": [],
+  "areaId": [],
+  "deviceId": [],
+  "entityId": [],
+  "labelId": [],
+  "data": "",
+  "dataType": "jsonata",
+  "mergeContext": "",
+  "mustacheAltTags": false,
+  "outputProperties": [],
+  "queue": "none",
+  "blockInputOverrides": false,
+  "domain": "notify",
+  "service": "mobile_app_DEIN_HANDY",
+  "x": 680,
+  "y": 80,
+  "wires": [
+   []
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_dbg",
+  "type": "debug",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Debug",
+  "active": true,
+  "tosidebar": true,
+  "console": false,
+  "tostatus": false,
+  "complete": "payload",
+  "targetType": "msg",
+  "statusVal": "",
+  "statusType": "auto",
+  "x": 680,
+  "y": 140,
+  "wires": []
+ },
+ {
+  "id": "spritgrantler_ta_info",
+  "type": "comment",
+  "z": "",
+  "g": "spritgrantler_ta_grp",
+  "name": "Anleitung (Doppelklick)",
+  "info": "Spritgrantler Tankalarm\n\nSchickt eine Push-Nachricht, sobald Diesel oder Super in 5 km um die Zone Zuhause so günstig ist wie selten in den letzten 14 Tagen.\n\nNach dem Import anpassen:\n1. In allen Nodes mit Home-Assistant-Symbol den Server auswählen (Doppelklick, Feld „Server“).\n2. Im Node „Push Handy“ bei „Action“ dein Handy eintragen, z. B. notify.mobile_app_mein_handy.\n3. Optional im Node „Logik“ ganz oben: nur ein Kraftstoff, andere Nachtruhe.\n4. Deploy, dann in der Gruppe „Test“ auf „Jetzt senden“ drücken.\n\nDer Sensor braucht mindestens 3 Tage Preise, vorher steht in der Nachricht „Lernt noch“.",
+  "x": 680,
+  "y": 200,
+  "wires": []
+ },
+ {
+  "id": "spritgrantler_ta_test",
+  "type": "group",
+  "z": "",
+  "name": "Test",
+  "style": {
+   "fill": "#e3f3d3",
+   "label": true
+  },
+  "nodes": [
+   "spritgrantler_ta_in_test",
+   "spritgrantler_ta_in_reset"
+  ],
+  "x": 834,
+  "y": 39,
+  "w": 232,
+  "h": 142
+ },
+ {
+  "id": "spritgrantler_ta_in_test",
+  "type": "inject",
+  "z": "",
+  "g": "spritgrantler_ta_test",
+  "name": "Jetzt senden",
+  "props": [
+   {
+    "p": "test",
+    "v": "true",
+    "vt": "bool"
+   }
+  ],
+  "repeat": "",
+  "crontab": "",
+  "once": false,
+  "onceDelay": 0.1,
+  "topic": "",
+  "x": 950,
+  "y": 80,
+  "wires": [
+   [
+    "spritgrantler_ta_cs_die"
+   ]
+  ]
+ },
+ {
+  "id": "spritgrantler_ta_in_reset",
+  "type": "inject",
+  "z": "",
+  "g": "spritgrantler_ta_test",
+  "name": "Tageszähler leeren",
+  "props": [
+   {
+    "p": "reset",
+    "v": "true",
+    "vt": "bool"
+   }
+  ],
+  "repeat": "",
+  "crontab": "",
+  "once": false,
+  "onceDelay": 0.1,
+  "topic": "",
+  "x": 950,
+  "y": 140,
+  "wires": [
+   [
+    "spritgrantler_ta_cs_die"
+   ]
+  ]
+ }
+]
